@@ -1,8 +1,3 @@
-let bannedUsers = new Set();
-let totalReports = 0;
-let onlineUsers = 0;
-let reports = {};
-
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -14,6 +9,10 @@ const io = new Server(server);
 app.use(express.static(__dirname));
 
 let waitingUser = null;
+let bannedUsers = new Set();
+let totalReports = 0;
+let onlineUsers = 0;
+let reports = {};
 
 function pairUsers(user1, user2) {
   user1.partner = user2;
@@ -24,13 +23,6 @@ function pairUsers(user1, user2) {
 }
 
 io.on("connection", (socket) => {
-onlineUsers++;
-
-console.log("User connected");
-console.log("Online users:", onlineUsers);
-
-io.emit("onlineCount", onlineUsers);
-
 
   const userIP = socket.handshake.address;
 
@@ -41,12 +33,14 @@ io.emit("onlineCount", onlineUsers);
     return;
   }
 
-  // ✅ Increase online users
+  // ✅ Increase online users (ONLY ONCE)
   onlineUsers++;
+  console.log("User connected");
+  console.log("Online users:", onlineUsers);
   io.emit("onlineCount", onlineUsers);
 
-  // 👥 Pairing logic
-  if (waitingUser) {
+  // 👥 Pairing logic on connect
+  if (waitingUser && waitingUser !== socket) {
     pairUsers(socket, waitingUser);
     waitingUser = null;
   } else {
@@ -101,16 +95,17 @@ io.emit("onlineCount", onlineUsers);
     socket.partner = null;
   });
 
-  // ⏭ Next
+  // ⏭ Next button
   socket.on("next", () => {
 
+    // Disconnect current partner
     if (socket.partner) {
       socket.partner.emit("system", "⚠ Stranger skipped");
       socket.partner.partner = null;
+      socket.partner = null;
     }
 
-    socket.partner = null;
-
+    // Try to match again
     if (waitingUser && waitingUser !== socket) {
       pairUsers(socket, waitingUser);
       waitingUser = null;
@@ -135,10 +130,11 @@ io.emit("onlineCount", onlineUsers);
       waitingUser = null;
     }
 
+    console.log("User disconnected");
+    console.log("Online users:", onlineUsers);
   });
 
-}); // ✅ THIS WAS MISSING (closing io.on)
-
+});
 
 // 🔐 Admin panel
 app.get("/admin", (req, res) => {
@@ -157,8 +153,7 @@ app.get("/admin", (req, res) => {
   `);
 });
 
-
 // 🚀 Start server
 server.listen(3000, () => {
-  console.log("🚀 Server running at http://localhost:3000");
+  console.log("🚀 Server running on port 3000");
 });

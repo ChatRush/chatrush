@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>ChatRush . Random Chat</title>
+
   <style>
 body {
   font-family: 'Segoe UI', sans-serif;
@@ -96,6 +97,7 @@ button {
 #nextBtn:hover {
   background: #ff1f5a;
 }
+
 #reportBtn {
   background: #444;
   color: white;
@@ -105,13 +107,8 @@ button {
   background: #666;
 }
 
-@media (max-width: 500px) {
-  #chat {
-    height: 95vh;
-  }
-}
+/* ✅ LOADING SCREEN CSS (MOVED INSIDE STYLE TAG) */
 
-  </style>
 #loadingScreen {
   position: fixed;
   width: 100%;
@@ -139,15 +136,23 @@ button {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+@media (max-width: 500px) {
+  #chat {
+    height: 95vh;
+  }
+}
+  </style>
 </head>
+
 <body>
+
 <div id="chat">
   <h3 class="logo">ChatRush</h3>
-<p style="text-align:center; color:gray; font-size:12px;">
-  Talk to strangers instantly 🌍
-</p>
 
-
+  <p style="text-align:center; color:gray; font-size:12px;">
+    Talk to strangers instantly 🌍
+  </p>
 
   <div id="online" style="color:lightgreen; margin-bottom:5px;">
     🟢 Online users: 0
@@ -159,14 +164,19 @@ button {
 
   <input id="msg" placeholder="Type message..." />
   <button id="nextBtn">Next ⏭</button>
-<button id="reportBtn" style="background:#444;">🚫 Report</button>
+  <button id="reportBtn">🚫 Report</button>
+</div>
 
+<!-- LOADING SCREEN -->
+<div id="loadingScreen">
+  <div class="loader"></div>
+  <p>Connecting to stranger...</p>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+
 <script>
 let username = prompt("Enter your username:");
-
 if (!username || username.trim() === "") {
   username = "Anonymous";
 }
@@ -188,6 +198,7 @@ socket.on("matched", () => {
   document.getElementById("loadingScreen").style.display = "none";
   messages.innerHTML += "<div class='system'>✅ Connected to stranger</div>";
 });
+
 socket.on("onlineCount", (count) => {
   online.innerHTML = "🟢 Online users: " + count;
 });
@@ -235,9 +246,5 @@ nextBtn.addEventListener("click", () => {
 });
 </script>
 
-<div id="loadingScreen">
-        <div class="loader"></div>
-        <p>Connecting to stranger...</p>
-    </div>
 </body>
 </html>

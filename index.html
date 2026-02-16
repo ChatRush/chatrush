@@ -1,264 +1,262 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ChatRush . Random Chat</title>
+<meta charset="UTF-8">
+<title>ChatRush</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
-
 body {
   font-family: 'Poppins', sans-serif;
-  background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364, #141e30);
-  background-size: 400% 400%;
-  animation: gradientMove 15s ease infinite;
-  color: white;
+  margin: 0;
+  height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  margin: 0;
+  background: linear-gradient(135deg,#141e30,#243b55);
+  transition: 0.4s;
+  color: white;
 }
 
-@keyframes gradientMove {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+.light {
+  background: linear-gradient(135deg,#e3e3e3,#ffffff);
+  color: black;
 }
 
 #chat {
   width: 380px;
   max-width: 95%;
+  height: 600px;
   backdrop-filter: blur(20px);
-  background: rgba(20, 20, 20, 0.65);
+  background: rgba(0,0,0,0.6);
   border-radius: 25px;
-  padding: 25px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  transition: 0.3s ease;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  transition: 0.4s;
 }
 
-#chat:hover {
-  transform: translateY(-5px);
+.light #chat {
+  background: rgba(255,255,255,0.8);
 }
 
 .logo {
-  text-align: center;
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  background: linear-gradient(90deg, #ff3c6d, #ff8c42);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-#messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-  background: rgba(0,0,0,0.5);
-  border-radius: 15px;
-  margin: 12px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  scrollbar-width: none;
-}
-
-#messages::-webkit-scrollbar {
-  display: none;
-}
-
-.message {
-  padding: 10px 14px;
-  border-radius: 20px;
-  max-width: 75%;
-  font-size: 14px;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.you {
-  background: linear-gradient(45deg, #ff3c6d, #ff8c42);
-  align-self: flex-end;
-  box-shadow: 0 5px 15px rgba(255,60,109,0.4);
-}
-
-.stranger {
-  background: #2b2b2b;
-  align-self: flex-start;
-}
-
-.system {
-  text-align: center;
-  font-size: 12px;
-  color: #aaa;
-}
-
-input {
-  padding: 12px;
-  border-radius: 15px;
-  border: none;
-  outline: none;
-  margin-bottom: 10px;
-  font-size: 14px;
-  background: #1f1f1f;
-  color: white;
-}
-
-button {
-  padding: 12px;
-  border-radius: 15px;
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  transition: 0.3s ease;
-  font-size: 14px;
-}
-
-#nextBtn {
-  background: linear-gradient(45deg, #ff3c6d, #ff8c42);
-  color: white;
-  margin-bottom: 8px;
-  box-shadow: 0 5px 20px rgba(255,60,109,0.4);
-}
-
-#nextBtn:hover {
-  transform: scale(1.05);
-}
-
-#reportBtn {
-  background: #2a2a2a;
-  color: #bbb;
-}
-
-#reportBtn:hover {
-  background: #444;
-  color: white;
+  text-align:center;
+  font-size:26px;
+  font-weight:600;
+  margin-bottom:5px;
 }
 
 #online {
-  font-size: 13px;
-  margin-top: 5px;
+  font-size:13px;
+  margin-bottom:8px;
+}
+
+#messages {
+  flex:1;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:10px;
+  border-radius:15px;
+  background: rgba(0,0,0,0.4);
+}
+
+.message {
+  max-width:75%;
+  padding:10px 14px;
+  border-radius:20px;
+  font-size:14px;
+  display:flex;
+  flex-direction:column;
+  animation: fade 0.3s ease;
+}
+
+@keyframes fade {
+  from {opacity:0; transform:translateY(5px);}
+  to {opacity:1; transform:translateY(0);}
+}
+
+.you {
+  align-self:flex-end;
+  background: linear-gradient(45deg,#ff416c,#ff4b2b);
+}
+
+.stranger {
+  align-self:flex-start;
+  background:#2e2e2e;
+}
+
+.time {
+  font-size:10px;
+  opacity:0.6;
+  margin-top:4px;
+  align-self:flex-end;
 }
 
 #typing {
-  font-size: 12px;
-  color: #ccc;
-  height: 18px;
+  font-size:12px;
+  height:18px;
+  opacity:0.8;
 }
 
-@media (max-width: 500px) {
-  #chat {
-    height: 95vh;
-  }
+input {
+  padding:10px;
+  border-radius:15px;
+  border:none;
+  margin-top:5px;
+  outline:none;
 }
-  </style>
+
+button {
+  padding:10px;
+  border-radius:15px;
+  border:none;
+  margin-top:6px;
+  cursor:pointer;
+  font-weight:600;
+  position:relative;
+  overflow:hidden;
+}
+
+#nextBtn {
+  background: linear-gradient(45deg,#ff416c,#ff4b2b);
+  color:white;
+}
+
+#reportBtn {
+  background:#444;
+  color:white;
+}
+
+#toggleTheme {
+  background:#777;
+  color:white;
+  font-size:12px;
+}
+
+button::after {
+  content:"";
+  position:absolute;
+  width:0;
+  height:0;
+  background:rgba(255,255,255,0.3);
+  border-radius:50%;
+  transform:scale(1);
+  opacity:0;
+  pointer-events:none;
+}
+
+button:active::after {
+  width:200px;
+  height:200px;
+  opacity:1;
+  transition:0s;
+}
+</style>
 </head>
 
 <body>
 
 <div id="chat">
-  <h3 class="logo">ChatRush</h3>
-
-  <p style="text-align:center; opacity:0.7; font-size:13px;">
-    Talk to strangers instantly 🌍
-  </p>
-
-  <div id="online" style="color:lightgreen; margin-bottom:5px;">
-    🟢 Online users: 0
-  </div>
-
-  <div id="typing" style="color:gray; font-size:12px;"></div>
-
+  <div class="logo">ChatRush</div>
+  <div id="online">Online: 0</div>
   <div id="messages"></div>
-
-  <input id="msg" placeholder="Type message..." />
-  <button id="nextBtn">Next ⏭</button>
-  <button id="reportBtn">🚫 Report</button>
+  <div id="typing"></div>
+  <input id="msgInput" placeholder="Type message..." />
+  <button id="nextBtn">Next</button>
+  <button id="reportBtn">Report</button>
+  <button id="toggleTheme">Toggle Theme</button>
 </div>
 
-<!-- LOADING SCREEN -->
-<div id="loadingScreen">
-  <div class="loader"></div>
-  <p>Connecting to stranger...</p>
-</div>
+<audio id="matchSound" src="match.mp3"></audio>
+<audio id="messageSound" src="message.mp3"></audio>
 
 <script src="/socket.io/socket.io.js"></script>
-
 <script>
-let username = prompt("Enter your username:");
-if (!username || username.trim() === "") {
-  username = "Anonymous";
-}
-
 const socket = io();
 const messages = document.getElementById("messages");
-const input = document.getElementById("msg");
-const nextBtn = document.getElementById("nextBtn");
-const reportBtn = document.getElementById("reportBtn");
-const online = document.getElementById("online");
-const typing = document.getElementById("typing");
+const input = document.getElementById("msgInput");
+const typingDiv = document.getElementById("typing");
+const matchSound = document.getElementById("matchSound");
+const messageSound = document.getElementById("messageSound");
 
-reportBtn.addEventListener("click", () => {
-  socket.emit("report");
-  messages.innerHTML += "<div class='system'>🚫 You reported this user</div>";
+function addMessage(text, type){
+  const msg = document.createElement("div");
+  msg.classList.add("message", type);
+  msg.innerHTML = text;
+
+  const time = document.createElement("div");
+  time.classList.add("time");
+  const now = new Date();
+  time.innerText = now.getHours() + ":" + now.getMinutes().toString().padStart(2,'0');
+
+  msg.appendChild(time);
+  messages.appendChild(msg);
+
+  messages.scrollTo({
+    top: messages.scrollHeight,
+    behavior: "smooth"
+  });
+}
+
+socket.on("onlineCount", count=>{
+  document.getElementById("online").innerText="Online: "+count;
 });
 
-socket.on("matched", () => {
-  document.getElementById("loadingScreen").style.display = "none";
-  messages.innerHTML += "<div class='system'>✅ Connected to stranger</div>";
+socket.on("matched", ()=>{
+  addMessage("✅ Connected to stranger","system");
+  matchSound.play();
 });
 
-socket.on("onlineCount", (count) => {
-  online.innerHTML = "🟢 Online users: " + count;
+socket.on("chatMessage", msg=>{
+  addMessage(msg,"stranger");
+  messageSound.play();
 });
 
-socket.on("chatMessage", (data) => {
-  messages.innerHTML += `<div class="message stranger">${data}</div>`;
-  messages.scrollTop = messages.scrollHeight;
+socket.on("typing", ()=>{
+  typingDiv.innerText="Stranger is typing...";
 });
 
-socket.on("system", (msg) => {
-  messages.innerHTML += `<div class="system">${msg}</div>`;
+socket.on("stopTyping", ()=>{
+  typingDiv.innerText="";
 });
 
-socket.on("typing", () => {
-  typing.innerText = "✍️ Stranger is typing...";
+socket.on("system", msg=>{
+  addMessage(msg,"system");
 });
 
-socket.on("stopTyping", () => {
-  typing.innerText = "";
+input.addEventListener("input", ()=>{
+  socket.emit("typing");
+  setTimeout(()=>socket.emit("stopTyping"),1000);
 });
 
-input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && input.value) {
-    socket.emit("chatMessage", input.value);
-    messages.innerHTML += `<div class="message you">${input.value}</div>`;
-    input.value = "";
+input.addEventListener("keypress", e=>{
+  if(e.key==="Enter"){
+    if(input.value.trim()!==""){
+      addMessage(input.value,"you");
+      socket.emit("chatMessage",input.value);
+      input.value="";
+    }
   }
 });
 
-let typingTimeout;
-
-input.addEventListener("input", () => {
-  socket.emit("typing");
-
-  clearTimeout(typingTimeout);
-  typingTimeout = setTimeout(() => {
-    socket.emit("stopTyping");
-  }, 1000);
-});
-
-nextBtn.addEventListener("click", () => {
-  messages.innerHTML = "";
-  document.getElementById("loadingScreen").style.display = "flex";
+document.getElementById("nextBtn").onclick=()=>{
+  messages.innerHTML="";
+  addMessage("🔍 Searching for someone...","system");
   socket.emit("next");
-});
+};
+
+document.getElementById("reportBtn").onclick=()=>{
+  socket.emit("report");
+};
+
+document.getElementById("toggleTheme").onclick=()=>{
+  document.body.classList.toggle("light");
+};
 </script>
 
 </body>

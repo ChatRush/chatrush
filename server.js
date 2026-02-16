@@ -8,18 +8,24 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-let waitingUser = null;
+let waitingQueue = [];
 let bannedUsers = new Set();
 let totalReports = 0;
 let onlineUsers = 0;
 let reports = {};
 
-function pairUsers(user1, user2) {
-  user1.partner = user2;
-  user2.partner = user1;
+function tryMatch() {
+  if (waitingQueue.length >= 2) {
 
-  user1.emit("matched");
-  user2.emit("matched");
+    const user1 = waitingQueue.shift();
+    const user2 = waitingQueue.shift();
+
+    user1.partner = user2;
+    user2.partner = user1;
+
+    user1.emit("matched");
+    user2.emit("matched");
+  }
 }
 
 io.on("connection", (socket) => {
@@ -33,28 +39,24 @@ io.on("connection", (socket) => {
     return;
   }
 
-  // ✅ Increase online users (ONLY ONCE)
+  // ✅ Increase online users
   onlineUsers++;
   console.log("User connected");
   console.log("Online users:", onlineUsers);
   io.emit("onlineCount", onlineUsers);
 
-  // 👥 Pairing logic on connect
-  if (waitingUser && waitingUser !== socket) {
-    pairUsers(socket, waitingUser);
-    waitingUser = null;
-  } else {
-    waitingUser = socket;
-  }
+  // 👥 Add to queue and try matching
+  waitingQueue.push(socket);
+  tryMatch();
 
-  // 💬 Chat
+  // 💬 Chat messages
   socket.on("chatMessage", (msg) => {
     if (socket.partner) {
       socket.partner.emit("chatMessage", msg);
     }
   });
 
-  // ⌨ Typing
+  // ⌨ Typing indicator
   socket.on("typing", () => {
     if (socket.partner) {
       socket.partner.emit("typing");
@@ -98,21 +100,15 @@ io.on("connection", (socket) => {
   // ⏭ Next button
   socket.on("next", () => {
 
-    // Disconnect current partner
     if (socket.partner) {
       socket.partner.emit("system", "⚠ Stranger skipped");
       socket.partner.partner = null;
-      socket.partner = null;
     }
 
-    // Try to match again
-    if (waitingUser && waitingUser !== socket) {
-      pairUsers(socket, waitingUser);
-      waitingUser = null;
-    } else {
-      waitingUser = socket;
-      socket.emit("system", "🔍 Searching for new stranger...");
-    }
+    socket.partner = null;
+
+    waitingQueue.push(socket);
+    tryMatch();
   });
 
   // ❌ Disconnect
@@ -126,9 +122,7 @@ io.on("connection", (socket) => {
       socket.partner.partner = null;
     }
 
-    if (waitingUser === socket) {
-      waitingUser = null;
-    }
+    waitingQueue = waitingQueue.filter(user => user !== socket);
 
     console.log("User disconnected");
     console.log("Online users:", onlineUsers);

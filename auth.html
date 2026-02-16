@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Login - ChatRush</title>
+</head>
+<body>
+<h2>Register</h2>
+<input id="regUser" placeholder="Username">
+<input id="regPass" placeholder="Password" type="password">
+<button onclick="register()">Register</button>
+
+<h2>Login</h2>
+<input id="logUser" placeholder="Username">
+<input id="logPass" placeholder="Password" type="password">
+<button onclick="login()">Login</button>
+
+<script>
+async function register(){
+  const res = await fetch("/register",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      username:regUser.value,
+      password:regPass.value
+    })
+  });
+  alert(await res.text());
+}
+
+async function login(){
+  const res = await fetch("/login",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      username:logUser.value,
+      password:logPass.value
+    })
+  });
+  const text = await res.text();
+  alert(text);
+  if(text==="Login successful"){
+    window.location="index.html";
+  }
+}
+</script>
+</body>
+</html>

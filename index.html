@@ -177,6 +177,13 @@ button:active::after {
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
+fetch("/me")
+.then(res=>res.json())
+.then(data=>{
+  if(!data.user){
+    window.location="auth.html";
+  }
+});
 const socket = io();
 const messages = document.getElementById("messages");
 const input = document.getElementById("msgInput");

@@ -406,6 +406,42 @@
   <script>
     const socket = io();
 
+    // ================= 🔊 SOUND EFFECTS =================
+    // Put these in /public : match.mp3 , message.mp3
+    const matchSound = new Audio("/match.mp3");
+    const msgSound = new Audio("/message.mp3");
+    matchSound.volume = 0.6;
+    msgSound.volume = 0.6;
+
+    let soundUnlocked = false;
+
+    function unlockSound() {
+      if (soundUnlocked) return;
+      soundUnlocked = true;
+
+      // unlock audio on first user interaction
+      matchSound.muted = true;
+      matchSound.play().then(() => {
+        matchSound.pause();
+        matchSound.currentTime = 0;
+        matchSound.muted = false;
+      }).catch(() => {});
+
+      msgSound.muted = true;
+      msgSound.play().then(() => {
+        msgSound.pause();
+        msgSound.currentTime = 0;
+        msgSound.muted = false;
+      }).catch(() => {});
+    }
+
+    function playSafe(audio) {
+      if (!soundUnlocked) return;
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    }
+    // ====================================================
+
     const chatBox = document.getElementById("chatBox");
     const msgInput = document.getElementById("msg");
     const sendBtn = document.getElementById("sendBtn");
@@ -417,6 +453,10 @@
     const topStatus = document.getElementById("topStatus");
     const pairPill = document.getElementById("pairPill");
     const dot = document.getElementById("dot");
+
+    function cssVar(name){
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
 
     function setDot(color){
       dot.style.background = color;
@@ -471,8 +511,9 @@
 
     // UI actions
     startBtn.onclick = () => {
+      unlockSound();
       setStatus("Searching…", "Looking for someone online");
-      setDot(getComputedStyle(document.documentElement).getPropertyValue("--amber"));
+      setDot(cssVar("--amber"));
       socket.emit("find_partner");
     };
 
@@ -489,33 +530,38 @@
     });
 
     nextBtn.onclick = () => {
+      unlockSound();
       socket.emit("next");
       setConnectedUI(false);
       setStatus("Searching…", "Finding a new partner");
-      setDot(getComputedStyle(document.documentElement).getPropertyValue("--amber"));
+      setDot(cssVar("--amber"));
       sysLine("Searching for a new partner…");
     };
 
     // socket events
     socket.on("waiting", () => {
       setStatus("Waiting…", "Waiting for a partner to join");
-      setDot(getComputedStyle(document.documentElement).getPropertyValue("--amber"));
+      setDot(cssVar("--amber"));
       setConnectedUI(false);
       sysLine("Waiting for someone to connect…");
     });
 
     socket.on("matched", () => {
+      playSafe(matchSound);
       setStatus("Connected ✅", "Say hi 👋");
-      setDot(getComputedStyle(document.documentElement).getPropertyValue("--green"));
+      setDot(cssVar("--green"));
       setConnectedUI(true);
       sysLine("Connected! Say hi 👋");
     });
 
-    socket.on("chat_message", (msg) => addMsg(msg, "other"));
+    socket.on("chat_message", (msg) => {
+      playSafe(msgSound);
+      addMsg(msg, "other");
+    });
 
     socket.on("partner_left", () => {
       setStatus("Disconnected", "Partner left. Click Start/Next");
-      setDot(getComputedStyle(document.documentElement).getPropertyValue("--red"));
+      setDot(cssVar("--red"));
       setConnectedUI(false);
       sysLine("Partner left. Click Start or Next.");
     });
@@ -535,7 +581,7 @@
 
     // default state
     setStatus("Not started", "Click Start to find a partner");
-    setDot(getComputedStyle(document.documentElement).getPropertyValue("--amber"));
+    setDot(cssVar("--amber"));
   </script>
 </body>
 </html>

@@ -610,7 +610,7 @@
     loadMe();
 
     // UI actions
-    startBtn.onclick = () => {
+   startBtn.style.display = "none";
       unlockSound();
       setStatus("Searching…", "Looking for someone online");
       setDot(cssVar("--amber"));
@@ -720,9 +720,14 @@
     });
 
     // default state
-    setStatus("Not started", "Click Start to find a partner");
-    setDot(cssVar("--amber"));
-    hideTyping();
+setStatus("Searching…", "Looking for someone online");
+setDot(cssVar("--amber"));
+hideTyping();
+
+// 🔥 AUTO START
+setTimeout(() => {
+  socket.emit("find_partner");
+}, 300);
   </script>
 </body>
 </html>

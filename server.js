@@ -4,26 +4,44 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const path = require("path");
 
-// ✅ DB + Auth
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 
-// ✅ Socket.io
 const http = require("http");
 const { Server } = require("socket.io");
+
+const multer = require("multer");
+const streamifier = require("streamifier");
+const cloudinary = require("cloudinary").v2;
+const { nanoid } = require("nanoid");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.set("trust proxy", 1);
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: "2mb" }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
-// ================= MongoDB Connect =================
+// ================= Cloudinary =================
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "",
+  api_key: process.env.CLOUDINARY_API_KEY || "",
+  api_secret: process.env.CLOUDINARY_API_SECRET || "",
+});
+
+function cloudinaryReady() {
+  return (
+    !!process.env.CLOUDINARY_CLOUD_NAME &&
+    !!process.env.CLOUDINARY_API_KEY &&
+    !!process.env.CLOUDINARY_API_SECRET
+  );
+}
+
+// ================= MongoDB =================
 async function connectDB() {
   try {
     if (!process.env.MONGODB_URI) {
@@ -38,7 +56,7 @@ async function connectDB() {
 }
 connectDB();
 
-// ================= User Model =================
+// ================= Models =================
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, required: true, unique: true, trim: true },
@@ -48,6 +66,28 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 const User = mongoose.model("User", userSchema);
+
+const groupSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 40 },
+    code: { type: String, required: true, unique: true, index: true }, // join code
+    createdBy: { type: String, required: true }, // username
+  },
+  { timestamps: true }
+);
+const Group = mongoose.model("Group", groupSchema);
+
+const messageSchema = new mongoose.Schema(
+  {
+    groupId: { type: mongoose.Schema.Types.ObjectId, ref: "Group", index: true },
+    sender: { type: String, required: true },
+    type: { type: String, enum: ["text", "sticker", "image", "video", "audio"], default: "text" },
+    text: { type: String, default: "" },
+    url: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+const Message = mongoose.model("Message", messageSchema);
 
 // ================= JWT Helpers =================
 function signToken(user) {
@@ -62,7 +102,6 @@ function signToken(user) {
 function authMiddleware(req, res, next) {
   const token = req.cookies?.chatrush_token;
   if (!token) return res.status(401).send("Not logged in. Go back & login.");
-
   try {
     req.user = jwt.verify(token, process.env.JWT_SECRET);
     next();
@@ -71,15 +110,13 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// ================= Routes =================
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
+// ================= Pages =================
+app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
+app.get("/chat.html", authMiddleware, (req, res) => res.sendFile(path.join(__dirname, "public", "chat.html")));
+app.get("/groups.html", authMiddleware, (req, res) => res.sendFile(path.join(__dirname, "public", "groups.html")));
+app.get("/group.html", authMiddleware, (req, res) => res.sendFile(path.join(__dirname, "public", "group.html")));
 
-app.get("/chat.html", authMiddleware, (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "chat.html"));
-});
-
+// ================= Auth Routes =================
 app.post("/register", async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -105,7 +142,7 @@ app.post("/register", async (req, res) => {
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    return res.redirect("/chat.html");
+    return res.redirect("/groups.html");
   } catch (e) {
     console.error(e);
     return res.status(500).send("Register failed.");
@@ -131,7 +168,7 @@ app.post("/login", async (req, res) => {
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    return res.redirect("/chat.html");
+    return res.redirect("/groups.html");
   } catch (e) {
     console.error(e);
     return res.status(500).send("Login failed.");
@@ -147,143 +184,170 @@ app.get("/me", authMiddleware, (req, res) => {
   res.json({ ok: true, user: req.user });
 });
 
-// ================= Socket.IO Random Chat =================
+// ================= Group API =================
+app.post("/api/groups", authMiddleware, async (req, res) => {
+  try {
+    const name = String(req.body?.name || "").trim();
+    if (!name) return res.status(400).json({ ok: false, error: "Group name required" });
+
+    // 6-char join code, try a few times to avoid collisions
+    let code = "";
+    for (let i = 0; i < 5; i++) {
+      code = nanoid(7).replace(/[-_]/g, "").slice(0, 6).toUpperCase();
+      const exists = await Group.findOne({ code });
+      if (!exists) break;
+      code = "";
+    }
+    if (!code) return res.status(500).json({ ok: false, error: "Could not generate code" });
+
+    const g = await Group.create({ name, code, createdBy: req.user.username });
+    return res.json({ ok: true, group: { id: g._id, name: g.name, code: g.code } });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ ok: false, error: "Create group failed" });
+  }
+});
+
+app.post("/api/groups/join", authMiddleware, async (req, res) => {
+  try {
+    const code = String(req.body?.code || "").trim().toUpperCase();
+    if (!code) return res.status(400).json({ ok: false, error: "Code required" });
+
+    const g = await Group.findOne({ code });
+    if (!g) return res.status(404).json({ ok: false, error: "Invalid code" });
+
+    return res.json({ ok: true, group: { id: g._id, name: g.name, code: g.code } });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ ok: false, error: "Join failed" });
+  }
+});
+
+app.get("/api/groups/:id/messages", authMiddleware, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit || "50", 10), 100);
+    const groupId = req.params.id;
+    const msgs = await Message.find({ groupId }).sort({ createdAt: -1 }).limit(limit);
+    return res.json({ ok: true, messages: msgs.reverse() });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ ok: false, error: "Fetch messages failed" });
+  }
+});
+
+// ================= Upload API (Cloudinary) =================
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
+});
+
+app.post("/api/upload", authMiddleware, upload.single("file"), async (req, res) => {
+  try {
+    if (!cloudinaryReady()) {
+      return res.status(500).json({ ok: false, error: "Cloudinary env vars missing" });
+    }
+    if (!req.file) return res.status(400).json({ ok: false, error: "No file" });
+
+    const mime = req.file.mimetype || "";
+    const isImage = mime.startsWith("image/");
+    const isVideo = mime.startsWith("video/");
+    const isAudio = mime.startsWith("audio/");
+
+    const folder = "chatrush_uploads";
+    const resource_type = "auto"; // cloudinary will detect
+
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type,
+      },
+      (err, result) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ ok: false, error: "Upload failed" });
+        }
+        const url = result.secure_url;
+        let type = "file";
+        if (isImage) type = "image";
+        else if (isVideo) type = "video";
+        else if (isAudio) type = "audio";
+        return res.json({ ok: true, url, type });
+      }
+    );
+
+    streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ ok: false, error: "Upload error" });
+  }
+});
+
+// ================= Socket.IO Group Chat =================
 const server = http.createServer(app);
 const io = new Server(server);
 
-function broadcastOnline() {
-  io.emit("online_count", { online: io.of("/").sockets.size });
-}
+const socketUser = {}; // socket.id -> username
 
-// Waiting pools (Interest Filter)
-const waitingByInterest = {}; // interestKey -> socketId
-
-const partner = {};        // socketId -> partnerSocketId
-const socketUser = {};     // socketId -> username
-const socketInterest = {}; // socketId -> interestKey
-const lastMsgAt = {};      // socketId -> timestamp (rate limit)
-
-function normInterest(v) {
-  const s = String(v || "any").trim().toLowerCase();
-  if (!s) return "any";
-  return s.slice(0, 24);
-}
-
-function unpair(socketId) {
-  const p = partner[socketId];
-  if (p) {
-    delete partner[p];
-    io.to(p).emit("partner_left");
-  }
-  delete partner[socketId];
-}
-
-function removeFromWaiting(socketId) {
-  for (const k of Object.keys(waitingByInterest)) {
-    if (waitingByInterest[k] === socketId) delete waitingByInterest[k];
-  }
+function safeName(v) {
+  return String(v || "User").trim().slice(0, 20);
 }
 
 io.on("connection", (socket) => {
-  broadcastOnline();
-
-  // receive username + interest from client
-  socket.on("register_user", (data) => {
-    if (data?.username) socketUser[socket.id] = String(data.username).slice(0, 20);
-    socketInterest[socket.id] = normInterest(data?.interest);
+  socket.on("hello", (data) => {
+    socketUser[socket.id] = safeName(data?.username);
   });
 
-  socket.on("set_interest", (data) => {
-    socketInterest[socket.id] = normInterest(data?.interest);
-    // if user was waiting earlier, refresh waiting pool
-    removeFromWaiting(socket.id);
+  socket.on("join_group", async (data) => {
+    const groupId = String(data?.groupId || "");
+    if (!groupId) return;
+
+    socket.join(groupId);
+    const u = socketUser[socket.id] || "User";
+    io.to(groupId).emit("system", { text: `${u} joined`, ts: Date.now() });
   });
 
-  socket.on("find_partner", () => {
-    if (partner[socket.id]) return;
+  socket.on("typing_group", (data) => {
+    const groupId = String(data?.groupId || "");
+    if (!groupId) return;
+    const u = socketUser[socket.id] || "User";
+    socket.to(groupId).emit("typing_group", { username: u });
+  });
 
-    // ensure not sitting in any waiting slot
-    removeFromWaiting(socket.id);
+  socket.on("group_message", async (data) => {
+    try {
+      const groupId = String(data?.groupId || "");
+      if (!groupId) return;
 
-    const myInterest = socketInterest[socket.id] || "any";
+      const u = socketUser[socket.id] || "User";
+      const type = String(data?.type || "text");
+      const text = String(data?.text || "").slice(0, 2000);
+      const url = String(data?.url || "").slice(0, 2000);
 
-    // try exact interest match first (unless "any")
-    let matchId = null;
+      if (!["text", "sticker", "image", "video", "audio"].includes(type)) return;
 
-    if (myInterest !== "any" && waitingByInterest[myInterest] && waitingByInterest[myInterest] !== socket.id) {
-      matchId = waitingByInterest[myInterest];
-      delete waitingByInterest[myInterest];
-    } else if (waitingByInterest["any"] && waitingByInterest["any"] !== socket.id) {
-      // fallback to "any" pool
-      matchId = waitingByInterest["any"];
-      delete waitingByInterest["any"];
-    } else {
-      // put me in pool (myInterest)
-      waitingByInterest[myInterest] = socket.id;
-      socket.emit("waiting", { interest: myInterest });
-      return;
+      const msg = await Message.create({
+        groupId,
+        sender: u,
+        type,
+        text,
+        url,
+      });
+
+      io.to(groupId).emit("group_message", {
+        id: msg._id,
+        sender: msg.sender,
+        type: msg.type,
+        text: msg.text,
+        url: msg.url,
+        ts: msg.createdAt.getTime(),
+      });
+    } catch (e) {
+      console.error(e);
     }
-
-    // final pair
-    partner[socket.id] = matchId;
-    partner[matchId] = socket.id;
-
-    io.to(socket.id).emit("matched", {
-      partner: socketUser[matchId] || "Stranger",
-      interest: myInterest,
-    });
-
-    io.to(matchId).emit("matched", {
-      partner: socketUser[socket.id] || "Stranger",
-      interest: socketInterest[matchId] || "any",
-    });
-  });
-
-  // Typing indicator
-  socket.on("typing", () => {
-    const p = partner[socket.id];
-    if (!p) return;
-    io.to(p).emit("typing");
-  });
-
-  // rate limit 1 msg per 700ms
-  socket.on("chat_message", (msg) => {
-    const now = Date.now();
-    if (lastMsgAt[socket.id] && now - lastMsgAt[socket.id] < 700) return;
-    lastMsgAt[socket.id] = now;
-
-    const p = partner[socket.id];
-    if (!p) return;
-
-    const clean = String(msg || "").slice(0, 500);
-
-    const payload = {
-      text: clean,
-      from: socketUser[socket.id] || "You",
-      ts: now,
-    };
-
-    io.to(p).emit("chat_message", payload);
-    socket.emit("chat_message_self", payload);
-  });
-
-  socket.on("next", () => {
-    unpair(socket.id);
-    removeFromWaiting(socket.id);
-
-    socket.emit("clear_chat");
-    socket.emit("waiting", { interest: socketInterest[socket.id] || "any" });
   });
 
   socket.on("disconnect", () => {
-    unpair(socket.id);
-    removeFromWaiting(socket.id);
-
     delete socketUser[socket.id];
-    delete socketInterest[socket.id];
-    delete lastMsgAt[socket.id];
-
-    broadcastOnline();
   });
 });
 

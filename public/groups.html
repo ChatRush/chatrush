@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ChatRush Groups</title>
+  <style>
+    body{margin:0;font-family:system-ui;background:#0b1026;color:#eaf1ff;display:flex;justify-content:center;padding:22px}
+    .card{width:min(900px,100%);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:18px}
+    input,button{padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.2);color:#eaf1ff}
+    button{cursor:pointer;font-weight:800}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    .title{font-size:20px;font-weight:900}
+    .muted{color:#a8b6d6;font-size:13px}
+    .msg{margin-top:10px;color:#a8b6d6}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    a{color:#7fa0ff}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="top">
+      <div>
+        <div class="title">ChatRush Groups</div>
+        <div class="muted">Create a group or join with code. Media + voice supported.</div>
+      </div>
+      <div>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </div>
+
+    <div class="msg" id="me">Loading…</div>
+
+    <div class="row">
+      <div>
+        <h3>Create Group</h3>
+        <input id="gname" placeholder="Group name (e.g. Anime Fans)" />
+        <div style="height:10px"></div>
+        <button id="createBtn">Create</button>
+        <div class="msg" id="createMsg"></div>
+      </div>
+
+      <div>
+        <h3>Join Group</h3>
+        <input id="code" placeholder="Enter code (e.g. ABC123)" />
+        <div style="height:10px"></div>
+        <button id="joinBtn">Join</button>
+        <div class="msg" id="joinMsg"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px" class="muted">
+      Tip: After you create a group, share the code with friends.
+      <br/>Also you still have Random Chat at: <a href="/chat.html">/chat.html</a>
+    </div>
+  </div>
+
+  <script>
+    const meEl = document.getElementById("me");
+
+    async function loadMe(){
+      try{
+        const r = await fetch("/me", { credentials:"include" });
+        const d = await r.json();
+        meEl.textContent = "Logged in as: " + d.user.username;
+      }catch{
+        meEl.textContent = "Not logged in.";
+      }
+    }
+    loadMe();
+
+    document.getElementById("logoutBtn").onclick = async () => {
+      await fetch("/logout", { method:"POST", credentials:"include" });
+      location.href = "/";
+    };
+
+    document.getElementById("createBtn").onclick = async () => {
+      const name = document.getElementById("gname").value.trim();
+      const out = document.getElementById("createMsg");
+      out.textContent = "Creating…";
+      const r = await fetch("/api/groups", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        credentials:"include",
+        body: JSON.stringify({ name })
+      });
+      const d = await r.json();
+      if(!d.ok){ out.textContent = d.error || "Failed"; return; }
+      out.textContent = `Created ✅ Code: ${d.group.code}`;
+      location.href = `/group.html?id=${d.group.id}&code=${d.group.code}`;
+    };
+
+    document.getElementById("joinBtn").onclick = async () => {
+      const code = document.getElementById("code").value.trim();
+      const out = document.getElementById("joinMsg");
+      out.textContent = "Joining…";
+      const r = await fetch("/api/groups/join", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        credentials:"include",
+        body: JSON.stringify({ code })
+      });
+      const d = await r.json();
+      if(!d.ok){ out.textContent = d.error || "Failed"; return; }
+      out.textContent = `Joined ✅ ${d.group.name}`;
+      location.href = `/group.html?id=${d.group.id}&code=${d.group.code}`;
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ChatRush Group</title>
+  <style>
+    :root{--bg:#0b1026;--card:rgba(255,255,255,.06);--line:rgba(255,255,255,.12);--text:#eaf1ff;--muted:#a8b6d6;}
+    body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text);display:flex;justify-content:center;padding:16px}
+    .wrap{width:min(1100px,100%);display:grid;grid-template-columns:320px 1fr;gap:12px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px}
+    .title{font-weight:900;font-size:18px}
+    .muted{color:var(--muted);font-size:13px}
+    .chat{height:70vh;overflow:auto;background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:18px;padding:12px}
+    .row{margin:10px 0;display:flex}
+    .me{justify-content:flex-end}
+    .bubble{max-width:75%;padding:10px 12px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.06);white-space:pre-wrap;word-break:break-word}
+    .me .bubble{background:rgba(79,124,255,.18);border-color:rgba(79,124,255,.35)}
+    .meta{margin-top:6px;font-size:11px;color:rgba(168,182,214,.8)}
+    .composer{display:flex;gap:10px;margin-top:10px}
+    input{flex:1;padding:12px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.18);color:var(--text);outline:none}
+    button{padding:12px 12px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text);font-weight:900;cursor:pointer}
+    .btnBlue{background:rgba(79,124,255,.22);border-color:rgba(79,124,255,.35)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .typing{display:none;color:var(--muted);font-size:12px;margin-top:8px}
+    .emojiBar,.stickerBar{display:none;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .emoji{padding:8px 10px;border-radius:12px;border:1px solid var(--line);cursor:pointer;background:rgba(0,0,0,.18)}
+    .sticker{width:54px;height:54px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.18);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:26px}
+    video,img,audio{max-width:320px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.2)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title" id="gTitle">Group</div>
+      <div class="muted" id="gCode">Code: ...</div>
+      <div class="muted" id="me">Loading…</div>
+
+      <div class="grid">
+        <button id="backBtn">← Back</button>
+        <button id="copyBtn">Copy Code</button>
+      </div>
+
+      <div class="toolbar">
+        <button id="emojiBtn">😀 Emojis</button>
+        <button id="stickerBtn">✨ Stickers</button>
+        <label style="display:inline-flex;gap:8px;align-items:center;cursor:pointer">
+          <input id="fileInput" type="file" accept="image/*,video/*,audio/*" style="display:none"/>
+          <span class="emoji">📎 Upload</span>
+        </label>
+        <button id="recordBtn" class="btnBlue">🎙 Voice</button>
+      </div>
+
+      <div class="emojiBar" id="emojiBar">
+        <div class="emoji">😂</div><div class="emoji">🔥</div><div class="emoji">😍</div><div class="emoji">😭</div>
+        <div class="emoji">👍</div><div class="emoji">🙏</div><div class="emoji">😎</div><div class="emoji">💯</div>
+        <div class="emoji">✅</div><div class="emoji">🎉</div><div class="emoji">❤️</div><div class="emoji">🫡</div>
+      </div>
+
+      <!-- Stickers = quick preset (emoji-style stickers). Later we can replace with real sticker images. -->
+      <div class="stickerBar" id="stickerBar">
+        <div class="sticker" data-st="😺">😺</div>
+        <div class="sticker" data-st="👑">👑</div>
+        <div class="sticker" data-st="💥">💥</div>
+        <div class="sticker" data-st="🦊">🦊</div>
+        <div class="sticker" data-st="🍜">🍜</div>
+        <div class="sticker" data-st="⚡">⚡</div>
+      </div>
+
+      <div class="typing" id="typing">Someone is typing…</div>
+      <div class="muted" style="margin-top:10px">Tip: media is stored permanently using Cloudinary.</div>
+    </div>
+
+    <div class="card">
+      <div class="title">Chat</div>
+      <div class="chat" id="chat"></div>
+
+      <div class="composer">
+        <input id="msg" placeholder="Type message…"/>
+        <button id="send" class="btnBlue">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    const chat = document.getElementById("chat");
+    const msg = document.getElementById("msg");
+    const send = document.getElementById("send");
+    const meEl = document.getElementById("me");
+    const gTitle = document.getElementById("gTitle");
+    const gCode = document.getElementById("gCode");
+    const typingEl = document.getElementById("typing");
+
+    const emojiBtn = document.getElementById("emojiBtn");
+    const stickerBtn = document.getElementById("stickerBtn");
+    const emojiBar = document.getElementById("emojiBar");
+    const stickerBar = document.getElementById("stickerBar");
+    const fileInput = document.getElementById("fileInput");
+    const recordBtn = document.getElementById("recordBtn");
+
+    const qs = new URLSearchParams(location.search);
+    const groupId = qs.get("id");
+    const code = qs.get("code") || "";
+
+    gTitle.textContent = "Group Chat";
+    gCode.textContent = "Code: " + (code || "—");
+
+    let myUsername = "You";
+    let typingTimeout = null;
+
+    function fmt(ts){
+      const d = new Date(ts || Date.now());
+      return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    }
+
+    function addBubble({sender, type, text, url, ts}){
+      const row = document.createElement("div");
+      row.className = "row" + (sender === myUsername ? " me" : "");
+      const b = document.createElement("div");
+      b.className = "bubble";
+
+      if(type === "text"){
+        b.textContent = text;
+      } else if(type === "sticker"){
+        b.textContent = text; // sticker emoji
+        b.style.fontSize = "34px";
+      } else if(type === "image"){
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "image";
+        b.appendChild(img);
+      } else if(type === "video"){
+        const v = document.createElement("video");
+        v.src = url;
+        v.controls = true;
+        b.appendChild(v);
+      } else if(type === "audio"){
+        const a = document.createElement("audio");
+        a.src = url;
+        a.controls = true;
+        b.appendChild(a);
+      } else {
+        b.textContent = text || url || "";
+      }
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = `${sender} • ${fmt(ts)}`;
+      b.appendChild(meta);
+
+      row.appendChild(b);
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function systemLine(t){
+      const div = document.createElement("div");
+      div.className = "muted";
+      div.style.margin = "10px 0";
+      div.style.textAlign = "center";
+      div.textContent = t;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function loadMe(){
+      const r = await fetch("/me", { credentials:"include" });
+      const d = await r.json();
+      myUsername = d.user.username;
+      meEl.textContent = "You: " + myUsername;
+      socket.emit("hello", { username: myUsername });
+    }
+
+    async function loadHistory(){
+      const r = await fetch(`/api/groups/${groupId}/messages?limit=50`, { credentials:"include" });
+      const d = await r.json();
+      if(d.ok){
+        d.messages.forEach(m => addBubble({
+          sender: m.sender, type: m.type, text: m.text, url: m.url, ts: new Date(m.createdAt).getTime()
+        }));
+      }
+    }
+
+    // Join group
+    (async () => {
+      await loadMe();
+      await loadHistory();
+      socket.emit("join_group", { groupId });
+      systemLine("Connected ✅");
+    })();
+
+    // Typing indicator
+    msg.addEventListener("input", () => {
+      socket.emit("typing_group", { groupId });
+    });
+
+    socket.on("typing_group", ({username}) => {
+      typingEl.style.display = "block";
+      typingEl.textContent = `${username} is typing…`;
+      if(typingTimeout) clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => typingEl.style.display = "none", 1600);
+    });
+
+    socket.on("system", (p) => systemLine(p.text));
+
+    socket.on("group_message", (p) => {
+      addBubble({ sender:p.sender, type:p.type, text:p.text, url:p.url, ts:p.ts });
+    });
+
+    function sendText(){
+      const t = msg.value.trim();
+      if(!t) return;
+      socket.emit("group_message", { groupId, type:"text", text:t });
+      msg.value = "";
+    }
+
+    send.onclick = sendText;
+    msg.addEventListener("keydown", (e) => { if(e.key==="Enter") sendText(); });
+
+    // Emoji panel
+    emojiBtn.onclick = () => {
+      emojiBar.style.display = emojiBar.style.display === "flex" ? "none" : "flex";
+      stickerBar.style.display = "none";
+      emojiBar.style.flexWrap = "wrap";
+    };
+    stickerBtn.onclick = () => {
+      stickerBar.style.display = stickerBar.style.display === "flex" ? "none" : "flex";
+      emojiBar.style.display = "none";
+      stickerBar.style.flexWrap = "wrap";
+    };
+
+    emojiBar.addEventListener("click", (e) => {
+      if(e.target.classList.contains("emoji")){
+        msg.value += e.target.textContent;
+        msg.focus();
+      }
+    });
+
+    stickerBar.addEventListener("click", (e) => {
+      const st = e.target.getAttribute("data-st");
+      if(st){
+        socket.emit("group_message", { groupId, type:"sticker", text: st });
+      }
+    });
+
+    // Upload (image/video/audio)
+    fileInput.addEventListener("change", async () => {
+      const f = fileInput.files?.[0];
+      if(!f) return;
+
+      systemLine("Uploading…");
+      const fd = new FormData();
+      fd.append("file", f);
+
+      const r = await fetch("/api/upload", {
+        method:"POST",
+        credentials:"include",
+        body: fd
+      });
+
+      const d = await r.json();
+      if(!d.ok){ systemLine("Upload failed: " + (d.error || "")); return; }
+
+      const type = d.type; // image/video/audio
+      socket.emit("group_message", { groupId, type, url: d.url, text:"" });
+      fileInput.value = "";
+    });
+
+    // Voice notes (record -> upload)
+    let rec = null;
+    let chunks = [];
+    let recording = false;
+
+    recordBtn.onclick = async () => {
+      if(!recording){
+        const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+        rec = new MediaRecorder(stream);
+        chunks = [];
+        rec.ondataavailable = (e) => chunks.push(e.data);
+        rec.onstop = async () => {
+          const blob = new Blob(chunks, { type: "audio/webm" });
+          systemLine("Uploading voice…");
+
+          const fd = new FormData();
+          fd.append("file", blob, "voice.webm");
+          const r = await fetch("/api/upload", { method:"POST", credentials:"include", body: fd });
+          const d = await r.json();
+          if(d.ok){
+            socket.emit("group_message", { groupId, type:"audio", url: d.url, text:"" });
+            systemLine("Voice sent ✅");
+          } else {
+            systemLine("Voice upload failed");
+          }
+        };
+        rec.start();
+        recording = true;
+        recordBtn.textContent = "⏹ Stop";
+      } else {
+        rec.stop();
+        recording = false;
+        recordBtn.textContent = "🎙 Voice";
+      }
+    };
+
+    document.getElementById("backBtn").onclick = () => location.href = "/groups.html";
+    document.getElementById("copyBtn").onclick = async () => {
+      await navigator.clipboard.writeText(code);
+      systemLine("Code copied ✅");
+    };
+  </script>
+</body>
+</html>

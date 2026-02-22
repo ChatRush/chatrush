@@ -353,7 +353,36 @@
       margin: 12px 0;
     }
 
-    /* Responsive */
+    /* ✅ Typing indicator style */
+    .typing{
+      padding: 10px 14px;
+      margin: 0 18px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0,0,0,.12);
+      color: rgba(168,182,214,.95);
+      font-size: 12px;
+      display:none;
+      align-items:center;
+      gap:10px;
+    }
+    .dots{
+      display:inline-flex;
+      gap:4px;
+    }
+    .dots span{
+      width:6px;height:6px;border-radius:50%;
+      background: rgba(168,182,214,.9);
+      animation: blink 1s infinite ease-in-out;
+      opacity:.35;
+    }
+    .dots span:nth-child(2){ animation-delay: .15s; }
+    .dots span:nth-child(3){ animation-delay: .30s; }
+    @keyframes blink{
+      0%,100%{ transform: translateY(0); opacity:.25; }
+      50%{ transform: translateY(-2px); opacity:1; }
+    }
+
     @media (max-width: 980px){
       .wrap{ grid-template-columns: 1fr; }
       .chat{ min-height: 72vh; }
@@ -383,7 +412,6 @@
           </div>
         </div>
 
-        <!-- ✅ NEW: username + online count -->
         <div class="miniRow">
           <div class="chip">You: <span id="meName">...</span></div>
           <div class="chip">Online: <span id="onlineCount">0</span></div>
@@ -424,6 +452,12 @@
         <div class="sys">Welcome to ChatRush 🔥 Click <b>Start</b> to begin.</div>
       </div>
 
+      <!-- ✅ NEW: typing indicator (premium) -->
+      <div class="typing" id="typingIndicator">
+        <span id="typingText">Partner is typing</span>
+        <span class="dots"><span></span><span></span><span></span></span>
+      </div>
+
       <div class="composer">
         <input id="msg" placeholder="Type a message…" disabled />
         <button id="sendBtn" class="send" disabled>Send</button>
@@ -436,7 +470,6 @@
     const socket = io();
 
     // ================= 🔊 SOUND EFFECTS =================
-    // Put these in /public : match.mp3 , message.mp3
     const matchSound = new Audio("/match.mp3");
     const msgSound = new Audio("/message.mp3");
     matchSound.volume = 0.6;
@@ -482,11 +515,16 @@
     const pairPill = document.getElementById("pairPill");
     const dot = document.getElementById("dot");
 
-    // ✅ NEW UI
     const meNameEl = document.getElementById("meName");
     const onlineCountEl = document.getElementById("onlineCount");
 
+    // ✅ Typing indicator
+    const typingIndicator = document.getElementById("typingIndicator");
+    const typingText = document.getElementById("typingText");
+    let typingTimeout = null;
+
     let myUsername = "You";
+    let partnerName = "Stranger";
 
     function cssVar(name){
       return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -518,7 +556,6 @@
       return `${hh}:${mm}`;
     }
 
-    // ✅ UPDATED: supports payload objects {text, from, ts}
     function addMsg(text, who="other", metaLabel=null, ts=null){
       const row = document.createElement("div");
       row.className = "row" + (who === "me" ? " me" : "");
@@ -550,7 +587,15 @@
       pairPill.textContent = connected ? "Connected" : "No partner";
     }
 
-    // ✅ Load username from /me (requires login cookie)
+    function hideTyping(){
+      typingIndicator.style.display = "none";
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+        typingTimeout = null;
+      }
+    }
+
+    // ✅ Load username from /me
     async function loadMe() {
       try {
         const r = await fetch("/me", { credentials: "include" });
@@ -569,16 +614,27 @@
       unlockSound();
       setStatus("Searching…", "Looking for someone online");
       setDot(cssVar("--amber"));
+      hideTyping();
       socket.emit("find_partner");
     };
 
     sendBtn.onclick = () => {
       const text = msgInput.value.trim();
       if(!text) return;
-      // DO NOT add message here (server will send chat_message_self)
       socket.emit("chat_message", text);
       msgInput.value = "";
+      hideTyping();
     };
+
+    // ✅ emit typing while typing (throttle 400ms)
+    let lastTypingSent = 0;
+    msgInput.addEventListener("input", () => {
+      const now = Date.now();
+      if (now - lastTypingSent > 400) {
+        socket.emit("typing");
+        lastTypingSent = now;
+      }
+    });
 
     msgInput.addEventListener("keydown", (e) => {
       if(e.key === "Enter") sendBtn.click();
@@ -590,6 +646,7 @@
       setConnectedUI(false);
       setStatus("Searching…", "Finding a new partner");
       setDot(cssVar("--amber"));
+      hideTyping();
       sysLine("Searching for a new partner…");
       socket.emit("find_partner");
     };
@@ -603,32 +660,44 @@
       setStatus("Waiting…", "Waiting for a partner to join");
       setDot(cssVar("--amber"));
       setConnectedUI(false);
+      hideTyping();
       sysLine("Waiting for someone to connect…");
     });
 
-    // ✅ UPDATED: receives partner name
     socket.on("matched", (data) => {
       playSafe(matchSound);
-      const partnerName = data?.partner || "Stranger";
+      partnerName = data?.partner || "Stranger";
       setStatus("Connected ✅", `Connected with ${partnerName}`);
       setDot(cssVar("--green"));
       setConnectedUI(true);
+      hideTyping();
       sysLine(`Connected with ${partnerName}! Say hi 👋`);
     });
 
-    // ✅ UPDATED: partner message payload
+    // ✅ Typing event from server
+    socket.on("typing", () => {
+      if (msgInput.disabled) return;
+      typingText.textContent = `${partnerName} is typing`;
+      typingIndicator.style.display = "flex";
+
+      if (typingTimeout) clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        typingIndicator.style.display = "none";
+      }, 2000);
+    });
+
     socket.on("chat_message", (payload) => {
       playSafe(msgSound);
+      hideTyping();
       if (payload && typeof payload === "object") {
-        addMsg(payload.text ?? "", "other", payload.from || "Stranger", payload.ts);
+        addMsg(payload.text ?? "", "other", payload.from || partnerName, payload.ts);
       } else {
-        // fallback (old server)
-        addMsg(String(payload), "other", "Stranger", Date.now());
+        addMsg(String(payload), "other", partnerName, Date.now());
       }
     });
 
-    // ✅ NEW: your own message payload from server
     socket.on("chat_message_self", (payload) => {
+      hideTyping();
       if (payload && typeof payload === "object") {
         addMsg(payload.text ?? "", "me", myUsername, payload.ts);
       } else {
@@ -640,17 +709,20 @@
       setStatus("Disconnected", "Partner left. Click Start/Next");
       setDot(cssVar("--red"));
       setConnectedUI(false);
+      hideTyping();
       sysLine("Partner left. Click Start or Next.");
     });
 
     socket.on("clear_chat", () => {
       chatBox.innerHTML = "";
+      hideTyping();
       sysLine("Chat cleared.");
     });
 
     // default state
     setStatus("Not started", "Click Start to find a partner");
     setDot(cssVar("--amber"));
+    hideTyping();
   </script>
 </body>
 </html>

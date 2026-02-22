@@ -99,12 +99,11 @@ app.post("/register", async (req, res) => {
       passwordHash,
     });
 
-    // ✅ Auto-login after register
     const token = signToken(user);
     res.cookie("chatrush_token", token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: true, // Render is https
+      secure: true,
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -148,7 +147,7 @@ app.post("/logout", (req, res) => {
   res.redirect("/");
 });
 
-// ✅ Check login (for chat page to know username)
+// ✅ Check login (for chat page)
 app.get("/me", authMiddleware, (req, res) => {
   res.json({ ok: true, user: req.user });
 });
@@ -180,7 +179,6 @@ function unpair(socketId) {
 io.on("connection", (socket) => {
   broadcastOnline();
 
-  // client sends their username after fetching /me
   socket.on("register_user", (data) => {
     if (data?.username) socketUser[socket.id] = String(data.username).slice(0, 20);
   });
@@ -204,7 +202,14 @@ io.on("connection", (socket) => {
     }
   });
 
-  // rate limit 1 message per 700ms + attach username + timestamp
+  // ✅ NEW: Typing indicator (no spam, just event)
+  socket.on("typing", () => {
+    const p = partner[socket.id];
+    if (!p) return;
+    io.to(p).emit("typing");
+  });
+
+  // rate limit 1 msg per 700ms + attach username + timestamp
   socket.on("chat_message", (msg) => {
     const now = Date.now();
     if (lastMsgAt[socket.id] && now - lastMsgAt[socket.id] < 700) return;

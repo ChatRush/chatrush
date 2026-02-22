@@ -2,149 +2,163 @@ require("dotenv").config();
 
 const express = require("express");
 const bodyParser = require("body-parser");
-const crypto = require("crypto");
-const nodemailer = require("nodemailer");
 const path = require("path");
 
-// ✅ socket.io
+// ✅ DB + Auth
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
+
+// ✅ Socket.io
 const http = require("http");
 const { Server } = require("socket.io");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ================= MIDDLEWARE =================
+app.set("trust proxy", 1);
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-
-// ✅ your folder must be named: public (lowercase)
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
-// ✅ Fix home route (prevents Cannot GET /)
+// ================= MongoDB Connect =================
+async function connectDB() {
+  try {
+    if (!process.env.MONGODB_URI) {
+      console.log("❌ Missing MONGODB_URI env var");
+      return;
+    }
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log("✅ MongoDB connected");
+  } catch (e) {
+    console.log("❌ MongoDB connect error:", e.message);
+  }
+}
+connectDB();
+
+// ================= User Model =================
+const userSchema = new mongoose.Schema(
+  {
+    username: { type: String, required: true, unique: true, trim: true },
+    email: { type: String, required: true, unique: true, trim: true, lowercase: true },
+    passwordHash: { type: String, required: true },
+  },
+  { timestamps: true }
+);
+
+const User = mongoose.model("User", userSchema);
+
+// ================= JWT Helpers =================
+function signToken(user) {
+  if (!process.env.JWT_SECRET) throw new Error("Missing JWT_SECRET env var");
+  return jwt.sign(
+    { uid: user._id.toString(), username: user.username },
+    process.env.JWT_SECRET,
+    { expiresIn: "30d" }
+  );
+}
+
+function authMiddleware(req, res, next) {
+  const token = req.cookies?.chatrush_token;
+  if (!token) return res.status(401).send("Not logged in. Go back & login.");
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).send("Session expired. Please login again.");
+  }
+}
+
+// ================= Routes =================
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// ================= USERS (TEMP) =================
-// NOTE: This resets when server restarts. For real app use DB later.
-let users = [];
-
-// ================= EMAIL SETUP (FIXED) =================
-// Render was timing out on Gmail 465, so we force port 587 + timeouts.
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // false for port 587
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 15000,
+// ✅ Protect chat page (only logged users)
+app.get("/chat.html", authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "chat.html"));
 });
 
-// ================= REGISTER =================
+// ✅ Register (saved permanently in MongoDB)
 app.post("/register", async (req, res) => {
   try {
     const { username, email, password } = req.body;
+    if (!username || !email || !password) return res.status(400).send("All fields required.");
 
-    if (!username || !email || !password) {
-      return res.status(400).send("All fields are required.");
-    }
+    const exists = await User.findOne({
+      $or: [{ username }, { email: email.toLowerCase() }],
+    });
+    if (exists) return res.status(400).send("Username or email already exists.");
 
-    if (users.find((u) => u.username === username)) {
-      return res.status(400).send("Username already exists.");
-    }
-
-    const verificationToken = crypto.randomBytes(32).toString("hex");
-
-    const newUser = {
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await User.create({
       username,
-      email,
-      password,
-      verified: false,
-      verificationToken,
-    };
+      email: email.toLowerCase(),
+      passwordHash,
+    });
 
-    users.push(newUser);
+    // ✅ Auto-login after register
+    const token = signToken(user);
+    res.cookie("chatrush_token", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: true, // Render is https
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
 
-    // ✅ IMPORTANT: BASE_URL must be in Render env
-    // Example: https://chatrush-0nsw.onrender.com
-    const verifyLink = `${process.env.BASE_URL}/verify/${verificationToken}`;
-
-    // ✅ Try sending email, but if Render blocks SMTP, don't hang forever
-    try {
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: "Verify your ChatRush account",
-        html: `
-          <h2>Welcome to ChatRush 🔥</h2>
-          <p>Click below to verify your account:</p>
-          <a href="${verifyLink}">${verifyLink}</a>
-        `,
-      });
-
-      return res.send(
-        "Registered successfully! Check your email to verify your account."
-      );
-    } catch (mailErr) {
-      console.error("MAIL ERROR:", mailErr);
-
-      // ✅ Fallback: show verification link on screen
-      return res.send(`
-        <h2>Registered ✅</h2>
-        <p><b>Email sending failed on server</b> (Render SMTP issue).</p>
-        <p>For now, verify using this link:</p>
-        <a href="${verifyLink}">${verifyLink}</a>
-        <p>After verifying, go back and login.</p>
-        <a href="/">Go to Home</a>
-      `);
-    }
-  } catch (error) {
-    console.error(error);
-    return res.status(500).send("Server error. Check logs.");
+    return res.redirect("/chat.html");
+  } catch (e) {
+    console.error(e);
+    return res.status(500).send("Register failed.");
   }
 });
 
-// ================= VERIFY =================
-app.get("/verify/:token", (req, res) => {
-  const user = users.find((u) => u.verificationToken === req.params.token);
+// ✅ Login (persistent)
+app.post("/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).send("Enter username & password");
 
-  if (!user) {
-    return res.status(400).send("Invalid or expired token.");
+    const user = await User.findOne({ username });
+    if (!user) return res.status(400).send("Invalid username or password.");
+
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) return res.status(400).send("Invalid username or password.");
+
+    const token = signToken(user);
+    res.cookie("chatrush_token", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.redirect("/chat.html");
+  } catch (e) {
+    console.error(e);
+    return res.status(500).send("Login failed.");
   }
-
-  user.verified = true;
-  user.verificationToken = null;
-
-  return res.send(`
-    <h2>✅ Account verified successfully!</h2>
-    <p>Now go back and login.</p>
-    <a href="/">Go to Home</a>
-  `);
 });
 
-// ================= LOGIN =================
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
-
-  const user = users.find((u) => u.username === username && u.password === password);
-
-  if (!user) return res.status(400).send("Invalid username or password.");
-  if (!user.verified) return res.status(400).send("Please verify your email before logging in.");
-
-  return res.redirect("/chat.html");
+// ✅ Logout
+app.post("/logout", (req, res) => {
+  res.clearCookie("chatrush_token");
+  res.redirect("/");
 });
 
-// ================= SOCKET.IO RANDOM CHAT =================
+// ✅ Check login (optional)
+app.get("/me", authMiddleware, (req, res) => {
+  res.json({ ok: true, user: req.user });
+});
+
+// ================= Socket.IO Random Chat =================
 const server = http.createServer(app);
 const io = new Server(server);
 
-// waiting socket id
 let waitingUser = null;
-// partner mapping
 const partner = {};
 
 function unpair(socketId) {
@@ -157,20 +171,15 @@ function unpair(socketId) {
 }
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
-
   socket.on("find_partner", () => {
     if (partner[socket.id]) return;
 
     if (waitingUser && waitingUser !== socket.id) {
       const other = waitingUser;
-
       partner[socket.id] = other;
       partner[other] = socket.id;
-
       io.to(socket.id).emit("matched");
       io.to(other).emit("matched");
-
       waitingUser = null;
     } else {
       waitingUser = socket.id;
@@ -187,7 +196,6 @@ io.on("connection", (socket) => {
   socket.on("next", () => {
     unpair(socket.id);
     if (waitingUser === socket.id) waitingUser = null;
-
     socket.emit("clear_chat");
     socket.emit("waiting");
     socket.emit("status", "Searching...");
@@ -197,11 +205,10 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     if (waitingUser === socket.id) waitingUser = null;
     unpair(socket.id);
-    console.log("User disconnected:", socket.id);
   });
 });
 
-// ================= START SERVER =================
+// ================= Start Server =================
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });

@@ -6,14 +6,21 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const path = require("path");
 
+// socket.io
+const http = require("http");
+const { Server } = require("socket.io");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ================= MIDDLEWARE =================
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
 
-let users = []; // Temporary storage (resets on server restart)
+// ================= TEMP USERS (resets on restart) =================
+// NOTE: For real production, use DB (MongoDB/SQLite). For now OK.
+let users = [];
 
 // ================= EMAIL SETUP =================
 const transporter = nodemailer.createTransport({
@@ -29,21 +36,23 @@ app.post("/register", async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
+    if (!username || !email || !password) {
+      return res.send("All fields are required.");
+    }
+
     if (users.find(u => u.username === username)) {
       return res.send("Username already exists.");
     }
 
     const verificationToken = crypto.randomBytes(32).toString("hex");
 
-    const newUser = {
+    users.push({
       username,
       email,
       password,
       verified: false,
       verificationToken
-    };
-
-    users.push(newUser);
+    });
 
     const verifyLink = `${process.env.BASE_URL}/verify/${verificationToken}`;
 
@@ -76,29 +85,89 @@ app.get("/verify/:token", (req, res) => {
   user.verified = true;
   user.verificationToken = null;
 
-  res.send("Account verified successfully! You can now login.");
+  // ✅ Since you only have index.html, show a link back to home
+  res.send(`
+    <h2>✅ Account verified successfully!</h2>
+    <p>Now go back and login.</p>
+    <a href="/">Go to Home</a>
+  `);
 });
 
 // ================= LOGIN =================
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
-  const user = users.find(
-    u => u.username === username && u.password === password
-  );
+  const user = users.find(u => u.username === username && u.password === password);
 
-  if (!user) {
-    return res.send("Invalid username or password.");
-  }
+  if (!user) return res.send("Invalid username or password.");
+  if (!user.verified) return res.send("Please verify your email before logging in.");
 
-  if (!user.verified) {
-    return res.send("Please verify your email before logging in.");
-  }
-
+  // ✅ Go to chat.html
   res.redirect("/chat.html");
 });
 
+// ================= SOCKET.IO RANDOM CHAT =================
+const server = http.createServer(app);
+const io = new Server(server);
+
+let waitingUser = null;      // socket id of the waiting user
+const partner = {};          // partner[socketId] = otherSocketId
+
+function unpair(socketId) {
+  const p = partner[socketId];
+  if (p) {
+    delete partner[p];
+    io.to(p).emit("partner_left");
+  }
+  delete partner[socketId];
+}
+
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  socket.on("find_partner", () => {
+    if (partner[socket.id]) return;
+
+    if (waitingUser && waitingUser !== socket.id) {
+      const other = waitingUser;
+
+      partner[socket.id] = other;
+      partner[other] = socket.id;
+
+      io.to(socket.id).emit("matched");
+      io.to(other).emit("matched");
+
+      waitingUser = null;
+    } else {
+      waitingUser = socket.id;
+      socket.emit("waiting");
+    }
+  });
+
+  socket.on("chat_message", (msg) => {
+    const p = partner[socket.id];
+    if (!p) return;
+    io.to(p).emit("chat_message", msg);
+  });
+
+  socket.on("next", () => {
+    unpair(socket.id);
+    if (waitingUser === socket.id) waitingUser = null;
+
+    socket.emit("clear_chat");
+    socket.emit("waiting");
+    socket.emit("status", "Searching...");
+    socket.emit("re_find");
+  });
+
+  socket.on("disconnect", () => {
+    if (waitingUser === socket.id) waitingUser = null;
+    unpair(socket.id);
+    console.log("User disconnected:", socket.id);
+  });
+});
+
 // ================= START SERVER =================
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

@@ -1,263 +1,114 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ChatRush - Random Chat</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ChatRush</title>
+  <meta charset="UTF-8" />
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #141e30, #243b55);
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-    }
-
-    #chat {
-      width: 380px;
-      max-width: 95%;
-      background: #121212;
-      border-radius: 24px;
-      padding: 22px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .logo {
-      text-align: center;
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: 2px;
-      color: #ff3c6d;
-      margin: 0;
-    }
-
-    .sub {
-      text-align:center;
-      color: #9aa0a6;
-      font-size: 12px;
-      margin-top: -6px;
-    }
-
-    #online {
-      color: #9dffb0;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    #typing {
-      color: #9aa0a6;
-      font-size: 12px;
-      min-height: 16px;
-    }
-
-    #messages {
-      height: 360px;
-      overflow-y: auto;
-      padding: 12px;
-      background: #0b0b0b;
-      border-radius: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .message {
-      padding: 10px 12px;
-      border-radius: 18px;
-      max-width: 75%;
-      word-wrap: break-word;
-      font-size: 14px;
-      line-height: 1.3;
-    }
-
-    .you {
-      background: #ff3c6d;
-      align-self: flex-end;
-    }
-
-    .stranger {
-      background: #232323;
-      align-self: flex-start;
-    }
-
-    .system {
-      text-align: center;
-      font-size: 12px;
-      color: #9aa0a6;
-    }
-
-    .row {
-      display: flex;
-      gap: 10px;
-      margin-top: 6px;
-    }
-
-    input {
-      flex: 1;
-      padding: 12px;
-      border-radius: 12px;
-      border: none;
-      outline: none;
-      font-size: 14px;
-    }
-
-    button {
-      padding: 12px;
-      border-radius: 12px;
-      border: none;
-      cursor: pointer;
-      font-weight: 700;
-      transition: 0.15s;
-      font-size: 14px;
-    }
-
-    #nextBtn {
-      background: #ff3c6d;
-      color: white;
-      width: 100%;
-    }
-    #nextBtn:hover { background: #ff1f5a; }
-
-    #reportBtn {
-      background: #2b2b2b;
-      color: white;
-      width: 100%;
-    }
-    #reportBtn:hover { background: #3a3a3a; }
-
-    /* Loading screen */
-    #loadingScreen {
-      position: fixed;
-      inset: 0;
-      background: rgba(20, 30, 48, 0.95);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      color: white;
-      z-index: 9999;
-      gap: 16px;
-    }
-
-    .loader {
-      border: 6px solid #333;
-      border-top: 6px solid #ff3c6d;
-      border-radius: 50%;
-      width: 60px;
-      height: 60px;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
+    body { font-family: Arial; max-width: 750px; margin: 20px auto; }
+    #status { padding: 10px; border: 1px solid #ddd; margin: 10px 0; }
+    #chatBox { height: 380px; border: 1px solid #ccc; overflow-y: auto; padding: 10px; }
+    .me { text-align: right; }
+    .bubble { display: inline-block; padding: 8px 10px; border-radius: 10px; margin: 5px 0; border: 1px solid #ddd; }
+    #controls { display: flex; gap: 10px; margin-top: 10px; }
+    #msg { flex: 1; padding: 10px; }
+    button { padding: 10px 14px; cursor: pointer; }
   </style>
 </head>
-
 <body>
-  <div id="chat">
-    <h3 class="logo">ChatRush</h3>
-    <div class="sub">Talk to strangers instantly 🌍</div>
 
-    <div id="online">🟢 Online users: 0</div>
-    <div id="typing"></div>
+<h2>ChatRush 🔥 Random Chat</h2>
 
-    <div id="messages">
-      <div class="system">🔍 Searching for a stranger...</div>
-    </div>
+<div id="status">Status: Not started</div>
 
-    <div class="row">
-      <input id="msg" placeholder="Type message..." />
-    </div>
+<div id="chatBox"></div>
 
-    <button id="nextBtn">Next ⏭</button>
-    <button id="reportBtn">🚫 Report</button>
-  </div>
+<div id="controls">
+  <input id="msg" placeholder="Type message..." disabled />
+  <button id="sendBtn" disabled>Send</button>
+  <button id="nextBtn" disabled>Next</button>
+</div>
 
-  <div id="loadingScreen">
-    <div class="loader"></div>
-    <p>Connecting to stranger...</p>
-  </div>
+<button id="startBtn">Start</button>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
 
-    const messages = document.getElementById("messages");
-    const input = document.getElementById("msg");
-    const nextBtn = document.getElementById("nextBtn");
-    const reportBtn = document.getElementById("reportBtn");
-    const online = document.getElementById("online");
-    const typing = document.getElementById("typing");
-    const loadingScreen = document.getElementById("loadingScreen");
+  const statusEl = document.getElementById("status");
+  const chatBox = document.getElementById("chatBox");
+  const msgInput = document.getElementById("msg");
+  const sendBtn = document.getElementById("sendBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const startBtn = document.getElementById("startBtn");
 
-    // Online count
-    socket.on("onlineCount", (count) => {
-      online.innerHTML = "🟢 Online users: " + count;
-    });
+  function addMsg(text, who="other") {
+    const div = document.createElement("div");
+    if (who === "me") div.className = "me";
+    div.innerHTML = `<span class="bubble"></span>`;
+    div.querySelector(".bubble").textContent = text;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
 
-    // Match
-    socket.on("matched", () => {
-      loadingScreen.style.display = "none";
-      messages.innerHTML += "<div class='system'>✅ Connected to stranger</div>";
-      messages.scrollTop = messages.scrollHeight;
-    });
+  function setConnectedUI(connected) {
+    msgInput.disabled = !connected;
+    sendBtn.disabled = !connected;
+    nextBtn.disabled = !connected;
+  }
 
-    // Receive message
-    socket.on("chatMessage", (msg) => {
-      messages.innerHTML += `<div class="message stranger">${msg}</div>`;
-      messages.scrollTop = messages.scrollHeight;
-    });
+  startBtn.onclick = () => {
+    statusEl.textContent = "Status: Searching...";
+    socket.emit("find_partner");
+  };
 
-    // System message
-    socket.on("system", (msg) => {
-      messages.innerHTML += `<div class="system">${msg}</div>`;
-      messages.scrollTop = messages.scrollHeight;
-    });
+  sendBtn.onclick = () => {
+    const text = msgInput.value.trim();
+    if (!text) return;
+    addMsg(text, "me");
+    socket.emit("chat_message", text);
+    msgInput.value = "";
+  };
 
-    // Typing
-    socket.on("typing", () => typing.innerText = "✍️ Stranger is typing...");
-    socket.on("stopTyping", () => typing.innerText = "");
+  msgInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendBtn.click();
+  });
 
-    // Send message
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && input.value.trim()) {
-        socket.emit("chatMessage", input.value);
-        messages.innerHTML += `<div class="message you">${input.value}</div>`;
-        input.value = "";
-        messages.scrollTop = messages.scrollHeight;
-        socket.emit("stopTyping");
-      }
-    });
+  nextBtn.onclick = () => {
+    socket.emit("next");
+    setConnectedUI(false);
+  };
 
-    let typingTimeout;
-    input.addEventListener("input", () => {
-      socket.emit("typing");
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => socket.emit("stopTyping"), 900);
-    });
+  socket.on("waiting", () => {
+    statusEl.textContent = "Status: Waiting for partner...";
+    setConnectedUI(false);
+  });
 
-    // Next
-    nextBtn.addEventListener("click", () => {
-      messages.innerHTML = "<div class='system'>🔍 Searching for a stranger...</div>";
-      loadingScreen.style.display = "flex";
-      socket.emit("next");
-    });
+  socket.on("matched", () => {
+    statusEl.textContent = "Status: Connected ✅";
+    setConnectedUI(true);
+    addMsg("Connected! Say hi 👋");
+  });
 
-    // Report
-    reportBtn.addEventListener("click", () => {
-      socket.emit("report");
-      messages.innerHTML += "<div class='system'>🚫 You reported this user</div>";
-      messages.scrollTop = messages.scrollHeight;
-    });
-  </script>
+  socket.on("chat_message", (msg) => addMsg(msg, "other"));
+
+  socket.on("partner_left", () => {
+    addMsg("Partner left. Click Start or Next.");
+    statusEl.textContent = "Status: Disconnected";
+    setConnectedUI(false);
+  });
+
+  socket.on("clear_chat", () => {
+    chatBox.innerHTML = "";
+  });
+
+  socket.on("status", (t) => {
+    statusEl.textContent = "Status: " + t;
+  });
+
+  socket.on("re_find", () => {
+    socket.emit("find_partner");
+  });
+</script>
+
 </body>
 </html>

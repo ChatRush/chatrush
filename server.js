@@ -76,12 +76,10 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// ✅ Protect chat page (only logged users)
 app.get("/chat.html", authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "chat.html"));
 });
 
-// ✅ Register (saved permanently in MongoDB)
 app.post("/register", async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -114,7 +112,6 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// ✅ Login (persistent)
 app.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -141,13 +138,11 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// ✅ Logout
 app.post("/logout", (req, res) => {
   res.clearCookie("chatrush_token");
   res.redirect("/");
 });
 
-// ✅ Check login (for chat page)
 app.get("/me", authMiddleware, (req, res) => {
   res.json({ ok: true, user: req.user });
 });
@@ -156,16 +151,23 @@ app.get("/me", authMiddleware, (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Online count broadcast
 function broadcastOnline() {
   io.emit("online_count", { online: io.of("/").sockets.size });
 }
 
-let waitingUser = null;
+// Waiting pools (Interest Filter)
+const waitingByInterest = {}; // interestKey -> socketId
 
 const partner = {};        // socketId -> partnerSocketId
 const socketUser = {};     // socketId -> username
+const socketInterest = {}; // socketId -> interestKey
 const lastMsgAt = {};      // socketId -> timestamp (rate limit)
+
+function normInterest(v) {
+  const s = String(v || "any").trim().toLowerCase();
+  if (!s) return "any";
+  return s.slice(0, 24);
+}
 
 function unpair(socketId) {
   const p = partner[socketId];
@@ -176,40 +178,75 @@ function unpair(socketId) {
   delete partner[socketId];
 }
 
+function removeFromWaiting(socketId) {
+  for (const k of Object.keys(waitingByInterest)) {
+    if (waitingByInterest[k] === socketId) delete waitingByInterest[k];
+  }
+}
+
 io.on("connection", (socket) => {
   broadcastOnline();
 
+  // receive username + interest from client
   socket.on("register_user", (data) => {
     if (data?.username) socketUser[socket.id] = String(data.username).slice(0, 20);
+    socketInterest[socket.id] = normInterest(data?.interest);
+  });
+
+  socket.on("set_interest", (data) => {
+    socketInterest[socket.id] = normInterest(data?.interest);
+    // if user was waiting earlier, refresh waiting pool
+    removeFromWaiting(socket.id);
   });
 
   socket.on("find_partner", () => {
     if (partner[socket.id]) return;
 
-    if (waitingUser && waitingUser !== socket.id) {
-      const other = waitingUser;
+    // ensure not sitting in any waiting slot
+    removeFromWaiting(socket.id);
 
-      partner[socket.id] = other;
-      partner[other] = socket.id;
+    const myInterest = socketInterest[socket.id] || "any";
 
-      io.to(socket.id).emit("matched", { partner: socketUser[other] || "Stranger" });
-      io.to(other).emit("matched", { partner: socketUser[socket.id] || "Stranger" });
+    // try exact interest match first (unless "any")
+    let matchId = null;
 
-      waitingUser = null;
+    if (myInterest !== "any" && waitingByInterest[myInterest] && waitingByInterest[myInterest] !== socket.id) {
+      matchId = waitingByInterest[myInterest];
+      delete waitingByInterest[myInterest];
+    } else if (waitingByInterest["any"] && waitingByInterest["any"] !== socket.id) {
+      // fallback to "any" pool
+      matchId = waitingByInterest["any"];
+      delete waitingByInterest["any"];
     } else {
-      waitingUser = socket.id;
-      socket.emit("waiting");
+      // put me in pool (myInterest)
+      waitingByInterest[myInterest] = socket.id;
+      socket.emit("waiting", { interest: myInterest });
+      return;
     }
+
+    // final pair
+    partner[socket.id] = matchId;
+    partner[matchId] = socket.id;
+
+    io.to(socket.id).emit("matched", {
+      partner: socketUser[matchId] || "Stranger",
+      interest: myInterest,
+    });
+
+    io.to(matchId).emit("matched", {
+      partner: socketUser[socket.id] || "Stranger",
+      interest: socketInterest[matchId] || "any",
+    });
   });
 
-  // ✅ NEW: Typing indicator (no spam, just event)
+  // Typing indicator
   socket.on("typing", () => {
     const p = partner[socket.id];
     if (!p) return;
     io.to(p).emit("typing");
   });
 
-  // rate limit 1 msg per 700ms + attach username + timestamp
+  // rate limit 1 msg per 700ms
   socket.on("chat_message", (msg) => {
     const now = Date.now();
     if (lastMsgAt[socket.id] && now - lastMsgAt[socket.id] < 700) return;
@@ -232,24 +269,24 @@ io.on("connection", (socket) => {
 
   socket.on("next", () => {
     unpair(socket.id);
-    if (waitingUser === socket.id) waitingUser = null;
+    removeFromWaiting(socket.id);
 
     socket.emit("clear_chat");
-    socket.emit("waiting");
+    socket.emit("waiting", { interest: socketInterest[socket.id] || "any" });
   });
 
   socket.on("disconnect", () => {
-    if (waitingUser === socket.id) waitingUser = null;
     unpair(socket.id);
+    removeFromWaiting(socket.id);
 
     delete socketUser[socket.id];
+    delete socketInterest[socket.id];
     delete lastMsgAt[socket.id];
 
     broadcastOnline();
   });
 });
 
-// ================= Start Server =================
 server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });

@@ -76,9 +76,7 @@
       padding-bottom: 14px;
       border-bottom: 1px solid var(--line);
     }
-    .brandLeft{
-      display:flex; flex-direction:column; gap:4px;
-    }
+    .brandLeft{ display:flex; flex-direction:column; gap:4px; }
     .brand h1{
       margin:0;
       font-size: 20px;
@@ -95,10 +93,7 @@
       display:inline-flex;align-items:center;justify-content:center;
       font-weight:800;
     }
-    .tag{
-      font-size:12px;
-      color: var(--muted);
-    }
+    .tag{ font-size:12px; color: var(--muted); }
     .pill{
       font-size:12px;
       padding:6px 10px;
@@ -138,17 +133,8 @@
       box-shadow: 0 0 0 4px rgba(255,176,32,.14);
       flex: none;
     }
-    .statusMain{
-      font-size:14px;
-      font-weight:700;
-      margin:0;
-    }
-    .statusSub{
-      font-size:12px;
-      color: var(--muted);
-      margin-top:4px;
-      line-height:1.35;
-    }
+    .statusMain{ font-size:14px; font-weight:700; margin:0; }
+    .statusSub{ font-size:12px; color: var(--muted); margin-top:4px; line-height:1.35; }
 
     .miniRow{
       display:flex;
@@ -168,10 +154,18 @@
       font-size:12px;
       font-weight:700;
     }
-    .chip span{
-      font-weight:800;
-      color: rgba(231,241,255,.95);
+    .chip span{ font-weight:800; color: rgba(231,241,255,.95); }
+
+    .select, .interestInput{
+      width:100%;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      outline:none;
     }
+    .interestInput{ margin-top:10px; }
 
     .actions{
       display:grid;
@@ -197,38 +191,14 @@
       color:white;
       box-shadow: 0 18px 50px rgba(79,124,255,.20);
     }
-    .btnPrimary:hover{ filter: brightness(1.05); transform: translateY(-1px); }
-
     .btnGhost{
       background: rgba(255,255,255,.06);
       border: 1px solid var(--line);
       color: var(--text);
     }
-    .btnGhost:hover{ filter: brightness(1.05); transform: translateY(-1px); }
-
-    .hint{
-      font-size:12px;
-      color: var(--muted);
-      line-height:1.45;
-    }
-    .kbd{
-      display:inline-block;
-      padding:2px 7px;
-      border-radius:8px;
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.04);
-      color: var(--text);
-      font-weight:700;
-      font-size:11px;
-      margin:0 3px;
-    }
 
     /* Chat area */
-    .chat{
-      display:flex;
-      flex-direction:column;
-      min-height: 720px;
-    }
+    .chat{ display:flex; flex-direction:column; min-height: 720px; }
 
     .top{
       padding: 16px 18px;
@@ -238,20 +208,10 @@
       justify-content:space-between;
       background: rgba(0,0,0,.10);
     }
-    .topTitle{
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-    }
-    .topTitle .t1{
-      font-size:13px;
-      color: var(--muted);
-    }
-    .topTitle .t2{
-      font-size:16px;
-      font-weight:900;
-      letter-spacing:.2px;
-    }
+    .topTitle{ display:flex; flex-direction:column; gap:2px; }
+    .topTitle .t1{ font-size:13px; color: var(--muted); }
+    .topTitle .t2{ font-size:16px; font-weight:900; letter-spacing:.2px; }
+
     .rightPills{
       display:flex;
       gap:10px;
@@ -259,10 +219,7 @@
       flex-wrap:wrap;
       justify-content:flex-end;
     }
-    .pillStrong{
-      color: var(--text);
-      border-color: rgba(255,255,255,.14);
-    }
+    .pillStrong{ color: var(--text); border-color: rgba(255,255,255,.14); }
 
     .chatBox{
       flex: 1;
@@ -272,11 +229,9 @@
       scroll-behavior:smooth;
     }
 
-    .row{
-      display:flex;
-      margin: 10px 0;
-    }
+    .row{ display:flex; margin: 10px 0; }
     .row.me{ justify-content:flex-end; }
+
     .bubble{
       max-width: min(560px, 80%);
       padding: 10px 12px;
@@ -290,15 +245,13 @@
       position:relative;
       animation: pop .16s ease-out;
     }
-    @keyframes pop{
-      from{ transform: translateY(3px); opacity:.4; }
-      to{ transform: translateY(0); opacity:1; }
-    }
+    @keyframes pop{ from{ transform: translateY(3px); opacity:.4; } to{ transform: translateY(0); opacity:1; } }
     .row.me .bubble{
       background: rgba(79,124,255,.20);
       border-color: rgba(79,124,255,.35);
       box-shadow: 0 14px 50px rgba(79,124,255,.14);
     }
+
     .meta{
       margin-top:6px;
       font-size:11px;
@@ -307,10 +260,37 @@
       gap:8px;
       align-items:center;
     }
-    .meta .tick{
-      width:10px;height:10px;border-radius:4px;
-      background: rgba(255,255,255,.12);
-      display:inline-block;
+    .meta .tick{ width:10px;height:10px;border-radius:4px; background: rgba(255,255,255,.12); display:inline-block; }
+
+    /* Typing bubble inside chat */
+    .typingRow{
+      display:flex;
+      margin: 10px 0;
+      justify-content:flex-start;
+    }
+    .typingBubble{
+      padding: 10px 12px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      font-size:13px;
+      color: rgba(231,241,255,.9);
+    }
+    .dots{ display:inline-flex; gap:4px; }
+    .dots span{
+      width:6px;height:6px;border-radius:50%;
+      background: rgba(168,182,214,.9);
+      animation: blink 1s infinite ease-in-out;
+      opacity:.35;
+    }
+    .dots span:nth-child(2){ animation-delay: .15s; }
+    .dots span:nth-child(3){ animation-delay: .30s; }
+    @keyframes blink{
+      0%,100%{ transform: translateY(0); opacity:.25; }
+      50%{ transform: translateY(-2px); opacity:1; }
     }
 
     .composer{
@@ -329,59 +309,18 @@
       background: rgba(255,255,255,.04);
       color: var(--text);
       outline:none;
-      transition: border .15s ease, filter .15s ease;
     }
-    input:focus{
-      border-color: rgba(79,124,255,.55);
-      filter: brightness(1.05);
-    }
-    input::placeholder{
-      color: rgba(231,241,255,.45);
-    }
+    input:focus{ border-color: rgba(79,124,255,.55); }
+    input::placeholder{ color: rgba(231,241,255,.45); }
+
     .send{
       min-width: 120px;
       background: linear-gradient(135deg, rgba(55,214,122,1), rgba(55,214,122,.55));
       box-shadow: 0 18px 50px rgba(55,214,122,.16);
       color:white;
     }
-    .send:hover{ filter: brightness(1.05); transform: translateY(-1px); }
 
-    .sys{
-      text-align:center;
-      color: var(--muted);
-      font-size: 12px;
-      margin: 12px 0;
-    }
-
-    /* ✅ Typing indicator style */
-    .typing{
-      padding: 10px 14px;
-      margin: 0 18px 12px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: rgba(0,0,0,.12);
-      color: rgba(168,182,214,.95);
-      font-size: 12px;
-      display:none;
-      align-items:center;
-      gap:10px;
-    }
-    .dots{
-      display:inline-flex;
-      gap:4px;
-    }
-    .dots span{
-      width:6px;height:6px;border-radius:50%;
-      background: rgba(168,182,214,.9);
-      animation: blink 1s infinite ease-in-out;
-      opacity:.35;
-    }
-    .dots span:nth-child(2){ animation-delay: .15s; }
-    .dots span:nth-child(3){ animation-delay: .30s; }
-    @keyframes blink{
-      0%,100%{ transform: translateY(0); opacity:.25; }
-      50%{ transform: translateY(-2px); opacity:1; }
-    }
+    .sys{ text-align:center; color: var(--muted); font-size: 12px; margin: 12px 0; }
 
     @media (max-width: 980px){
       .wrap{ grid-template-columns: 1fr; }
@@ -408,7 +347,7 @@
           <div class="dot" id="dot"></div>
           <div>
             <div class="statusMain" id="statusMain">Not started</div>
-            <div class="statusSub" id="statusSub">Click Start to find a partner</div>
+            <div class="statusSub" id="statusSub">Matching by interest</div>
           </div>
         </div>
 
@@ -417,21 +356,32 @@
           <div class="chip">Online: <span id="onlineCount">0</span></div>
         </div>
 
-        <div class="actions">
-          <button class="btnPrimary" id="startBtn">Start</button>
-          <button class="btnGhost" id="nextBtn" disabled>Next</button>
+        <div class="section" style="border-top:none; padding-top:10px; margin-top:10px;">
+          <div class="label">Interest Filter</div>
+          <select id="interestSelect" class="select">
+            <option value="any">Any (Random)</option>
+            <option value="anime">Anime</option>
+            <option value="gaming">Gaming</option>
+            <option value="music">Music</option>
+            <option value="movies">Movies</option>
+            <option value="study">Study</option>
+            <option value="sports">Sports</option>
+            <option value="tech">Tech</option>
+            <option value="custom">Custom…</option>
+          </select>
+          <input id="interestCustom" class="interestInput" placeholder="Type your interest…" style="display:none;" />
         </div>
 
-        <div style="margin-top:12px" class="hint">
-          Tip: Open in two tabs (or Incognito) → press <span class="kbd">Start</span> in both.
-          Press <span class="kbd">Enter</span> to send.
+        <div class="actions">
+          <button class="btnPrimary" id="startBtn" style="display:none;">Start</button>
+          <button class="btnGhost" id="nextBtn" disabled>Next</button>
         </div>
       </div>
 
       <div class="section">
         <div class="label">Safety</div>
         <div class="hint">
-          Don’t share passwords/OTP. If something feels wrong, just press <span class="kbd">Next</span>.
+          Don’t share passwords/OTP. If something feels wrong, just press Next.
         </div>
       </div>
     </div>
@@ -441,21 +391,16 @@
       <div class="top">
         <div class="topTitle">
           <div class="t1">Chat session</div>
-          <div class="t2" id="topStatus">Not started</div>
+          <div class="t2" id="topStatus">Searching…</div>
         </div>
         <div class="rightPills">
-          <span class="pill pillStrong" id="pairPill">No partner</span>
+          <span class="pill pillStrong" id="pairPill">Searching…</span>
+          <span class="pill pillStrong" id="timerPill">00:00</span>
         </div>
       </div>
 
       <div class="chatBox" id="chatBox">
-        <div class="sys">Welcome to ChatRush 🔥 Click <b>Start</b> to begin.</div>
-      </div>
-
-      <!-- ✅ NEW: typing indicator (premium) -->
-      <div class="typing" id="typingIndicator">
-        <span id="typingText">Partner is typing</span>
-        <span class="dots"><span></span><span></span><span></span></span>
+        <div class="sys">Searching automatically…</div>
       </div>
 
       <div class="composer">
@@ -469,72 +414,84 @@
   <script>
     const socket = io();
 
-    // ================= 🔊 SOUND EFFECTS =================
+    // Sounds
     const matchSound = new Audio("/match.mp3");
     const msgSound = new Audio("/message.mp3");
     matchSound.volume = 0.6;
     msgSound.volume = 0.6;
 
     let soundUnlocked = false;
-
     function unlockSound() {
       if (soundUnlocked) return;
       soundUnlocked = true;
 
       matchSound.muted = true;
       matchSound.play().then(() => {
-        matchSound.pause();
-        matchSound.currentTime = 0;
-        matchSound.muted = false;
-      }).catch(() => {});
+        matchSound.pause(); matchSound.currentTime = 0; matchSound.muted = false;
+      }).catch(()=>{});
 
       msgSound.muted = true;
       msgSound.play().then(() => {
-        msgSound.pause();
-        msgSound.currentTime = 0;
-        msgSound.muted = false;
-      }).catch(() => {});
+        msgSound.pause(); msgSound.currentTime = 0; msgSound.muted = false;
+      }).catch(()=>{});
     }
-
     function playSafe(audio) {
       if (!soundUnlocked) return;
       audio.currentTime = 0;
-      audio.play().catch(() => {});
+      audio.play().catch(()=>{});
     }
-    // ====================================================
 
     const chatBox = document.getElementById("chatBox");
     const msgInput = document.getElementById("msg");
     const sendBtn = document.getElementById("sendBtn");
     const nextBtn = document.getElementById("nextBtn");
-    const startBtn = document.getElementById("startBtn");
 
     const statusMain = document.getElementById("statusMain");
     const statusSub = document.getElementById("statusSub");
     const topStatus = document.getElementById("topStatus");
     const pairPill = document.getElementById("pairPill");
+    const timerPill = document.getElementById("timerPill");
     const dot = document.getElementById("dot");
 
     const meNameEl = document.getElementById("meName");
     const onlineCountEl = document.getElementById("onlineCount");
 
-    // ✅ Typing indicator
-    const typingIndicator = document.getElementById("typingIndicator");
-    const typingText = document.getElementById("typingText");
-    let typingTimeout = null;
+    const interestSelect = document.getElementById("interestSelect");
+    const interestCustom = document.getElementById("interestCustom");
 
     let myUsername = "You";
     let partnerName = "Stranger";
 
+    // ===== Timer (Feature 5) =====
+    let timerStart = null;
+    let timerInt = null;
+
+    function setTimerRunning(on) {
+      if (timerInt) clearInterval(timerInt);
+      timerInt = null;
+
+      if (!on) {
+        timerStart = null;
+        timerPill.textContent = "00:00";
+        return;
+      }
+
+      timerStart = Date.now();
+      timerInt = setInterval(() => {
+        const s = Math.floor((Date.now() - timerStart) / 1000);
+        const mm = String(Math.floor(s / 60)).padStart(2, "0");
+        const ss = String(s % 60).padStart(2, "0");
+        timerPill.textContent = `${mm}:${ss}`;
+      }, 1000);
+    }
+
     function cssVar(name){
       return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     }
-
     function setDot(color){
       dot.style.background = color;
       dot.style.boxShadow = `0 0 0 4px ${color}22`;
     }
-
     function setStatus(main, sub){
       statusMain.textContent = main;
       topStatus.textContent = main;
@@ -580,53 +537,98 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
+    // ===== Typing bubble (Feature 4) =====
+    let typingEl = null;
+    let typingTimeout = null;
+
+    function showTypingBubble() {
+      if (!typingEl) {
+        const row = document.createElement("div");
+        row.className = "typingRow";
+        const bubble = document.createElement("div");
+        bubble.className = "typingBubble";
+        bubble.innerHTML = `<span>${partnerName} is typing</span>
+          <span class="dots"><span></span><span></span><span></span></span>`;
+        row.appendChild(bubble);
+        typingEl = row;
+        chatBox.appendChild(typingEl);
+      } else {
+        typingEl.querySelector("span").textContent = `${partnerName} is typing`;
+      }
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      if (typingTimeout) clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(hideTypingBubble, 2000);
+    }
+
+    function hideTypingBubble() {
+      if (typingTimeout) clearTimeout(typingTimeout);
+      typingTimeout = null;
+      if (typingEl) {
+        typingEl.remove();
+        typingEl = null;
+      }
+    }
+
     function setConnectedUI(connected){
       msgInput.disabled = !connected;
       sendBtn.disabled = !connected;
       nextBtn.disabled = !connected;
-      pairPill.textContent = connected ? "Connected" : "No partner";
+      pairPill.textContent = connected ? `Connected: ${partnerName}` : "Searching…";
     }
 
-    function hideTyping(){
-      typingIndicator.style.display = "none";
-      if (typingTimeout) {
-        clearTimeout(typingTimeout);
-        typingTimeout = null;
+    // ===== Interest (Feature 3) =====
+    function currentInterest() {
+      const v = interestSelect.value;
+      if (v === "custom") return (interestCustom.value.trim() || "any");
+      return v;
+    }
+
+    function sendInterestToServer() {
+      const intr = currentInterest();
+      socket.emit("set_interest", { interest: intr });
+      // when you change interest, restart search
+      socket.emit("next");
+      socket.emit("find_partner");
+      sysLine(`Matching interest: ${intr}`);
+    }
+
+    interestSelect.addEventListener("change", () => {
+      if (interestSelect.value === "custom") {
+        interestCustom.style.display = "block";
+        interestCustom.focus();
+      } else {
+        interestCustom.style.display = "none";
       }
-    }
+      sendInterestToServer();
+    });
 
-    // ✅ Load username from /me
+    interestCustom.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendInterestToServer();
+    });
+
+    // Load username
     async function loadMe() {
       try {
         const r = await fetch("/me", { credentials: "include" });
         const data = await r.json();
         myUsername = data?.user?.username || "You";
         meNameEl.textContent = myUsername;
-        socket.emit("register_user", { username: myUsername });
+        socket.emit("register_user", { username: myUsername, interest: currentInterest() });
       } catch (e) {
         meNameEl.textContent = "Guest";
+        socket.emit("register_user", { username: "Guest", interest: currentInterest() });
       }
     }
     loadMe();
 
-    // UI actions
-   startBtn.style.display = "none";
-      unlockSound();
-      setStatus("Searching…", "Looking for someone online");
-      setDot(cssVar("--amber"));
-      hideTyping();
-      socket.emit("find_partner");
-    };
+    // Auto start on load
+    setStatus("Searching…", "Matching by interest");
+    setDot(cssVar("--amber"));
+    setTimerRunning(false);
+    setTimeout(() => socket.emit("find_partner"), 350);
 
-    sendBtn.onclick = () => {
-      const text = msgInput.value.trim();
-      if(!text) return;
-      socket.emit("chat_message", text);
-      msgInput.value = "";
-      hideTyping();
-    };
-
-    // ✅ emit typing while typing (throttle 400ms)
+    // Send typing (throttle)
     let lastTypingSent = 0;
     msgInput.addEventListener("input", () => {
       const now = Date.now();
@@ -636,98 +638,87 @@
       }
     });
 
+    sendBtn.onclick = () => {
+      unlockSound();
+      const text = msgInput.value.trim();
+      if(!text) return;
+      socket.emit("chat_message", text);
+      msgInput.value = "";
+      hideTypingBubble();
+    };
+
     msgInput.addEventListener("keydown", (e) => {
       if(e.key === "Enter") sendBtn.click();
     });
 
     nextBtn.onclick = () => {
       unlockSound();
+      hideTypingBubble();
       socket.emit("next");
       setConnectedUI(false);
       setStatus("Searching…", "Finding a new partner");
       setDot(cssVar("--amber"));
-      hideTyping();
+      setTimerRunning(false);
       sysLine("Searching for a new partner…");
       socket.emit("find_partner");
     };
 
-    // socket events
+    // Socket events
     socket.on("online_count", (data) => {
       onlineCountEl.textContent = data?.online ?? 0;
     });
 
-    socket.on("waiting", () => {
-      setStatus("Waiting…", "Waiting for a partner to join");
+    socket.on("waiting", (data) => {
+      hideTypingBubble();
+      setStatus("Waiting…", `Interest: ${(data?.interest || currentInterest())}`);
       setDot(cssVar("--amber"));
       setConnectedUI(false);
-      hideTyping();
-      sysLine("Waiting for someone to connect…");
+      setTimerRunning(false);
     });
 
     socket.on("matched", (data) => {
+      unlockSound();
       playSafe(matchSound);
+      hideTypingBubble();
       partnerName = data?.partner || "Stranger";
       setStatus("Connected ✅", `Connected with ${partnerName}`);
       setDot(cssVar("--green"));
       setConnectedUI(true);
-      hideTyping();
+      setTimerRunning(true);
       sysLine(`Connected with ${partnerName}! Say hi 👋`);
     });
 
-    // ✅ Typing event from server
     socket.on("typing", () => {
       if (msgInput.disabled) return;
-      typingText.textContent = `${partnerName} is typing`;
-      typingIndicator.style.display = "flex";
-
-      if (typingTimeout) clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => {
-        typingIndicator.style.display = "none";
-      }, 2000);
+      showTypingBubble();
     });
 
     socket.on("chat_message", (payload) => {
       playSafe(msgSound);
-      hideTyping();
-      if (payload && typeof payload === "object") {
-        addMsg(payload.text ?? "", "other", payload.from || partnerName, payload.ts);
-      } else {
-        addMsg(String(payload), "other", partnerName, Date.now());
-      }
+      hideTypingBubble();
+      addMsg(payload?.text ?? "", "other", payload?.from || partnerName, payload?.ts);
     });
 
     socket.on("chat_message_self", (payload) => {
-      hideTyping();
-      if (payload && typeof payload === "object") {
-        addMsg(payload.text ?? "", "me", myUsername, payload.ts);
-      } else {
-        addMsg(String(payload), "me", myUsername, Date.now());
-      }
+      hideTypingBubble();
+      addMsg(payload?.text ?? "", "me", myUsername, payload?.ts);
     });
 
     socket.on("partner_left", () => {
-      setStatus("Disconnected", "Partner left. Click Start/Next");
+      hideTypingBubble();
+      setStatus("Disconnected", "Partner left. Searching…");
       setDot(cssVar("--red"));
       setConnectedUI(false);
-      hideTyping();
-      sysLine("Partner left. Click Start or Next.");
+      setTimerRunning(false);
+      sysLine("Partner left. Finding new partner…");
+      socket.emit("find_partner");
     });
 
     socket.on("clear_chat", () => {
       chatBox.innerHTML = "";
-      hideTyping();
+      hideTypingBubble();
       sysLine("Chat cleared.");
     });
-
-    // default state
-setStatus("Searching…", "Looking for someone online");
-setDot(cssVar("--amber"));
-hideTyping();
-
-// 🔥 AUTO START
-setTimeout(() => {
-  socket.emit("find_partner");
-}, 300);
   </script>
 </body>
 </html>

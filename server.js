@@ -47,7 +47,6 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
 const User = mongoose.model("User", userSchema);
 
 // ================= JWT Helpers =================
@@ -149,7 +148,7 @@ app.post("/logout", (req, res) => {
   res.redirect("/");
 });
 
-// ✅ Check login (optional)
+// ✅ Check login (for chat page to know username)
 app.get("/me", authMiddleware, (req, res) => {
   res.json({ ok: true, user: req.user });
 });
@@ -158,8 +157,16 @@ app.get("/me", authMiddleware, (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server);
 
+// Online count broadcast
+function broadcastOnline() {
+  io.emit("online_count", { online: io.of("/").sockets.size });
+}
+
 let waitingUser = null;
-const partner = {};
+
+const partner = {};        // socketId -> partnerSocketId
+const socketUser = {};     // socketId -> username
+const lastMsgAt = {};      // socketId -> timestamp (rate limit)
 
 function unpair(socketId) {
   const p = partner[socketId];
@@ -171,15 +178,25 @@ function unpair(socketId) {
 }
 
 io.on("connection", (socket) => {
+  broadcastOnline();
+
+  // client sends their username after fetching /me
+  socket.on("register_user", (data) => {
+    if (data?.username) socketUser[socket.id] = String(data.username).slice(0, 20);
+  });
+
   socket.on("find_partner", () => {
     if (partner[socket.id]) return;
 
     if (waitingUser && waitingUser !== socket.id) {
       const other = waitingUser;
+
       partner[socket.id] = other;
       partner[other] = socket.id;
-      io.to(socket.id).emit("matched");
-      io.to(other).emit("matched");
+
+      io.to(socket.id).emit("matched", { partner: socketUser[other] || "Stranger" });
+      io.to(other).emit("matched", { partner: socketUser[socket.id] || "Stranger" });
+
       waitingUser = null;
     } else {
       waitingUser = socket.id;
@@ -187,24 +204,43 @@ io.on("connection", (socket) => {
     }
   });
 
+  // rate limit 1 message per 700ms + attach username + timestamp
   socket.on("chat_message", (msg) => {
+    const now = Date.now();
+    if (lastMsgAt[socket.id] && now - lastMsgAt[socket.id] < 700) return;
+    lastMsgAt[socket.id] = now;
+
     const p = partner[socket.id];
     if (!p) return;
-    io.to(p).emit("chat_message", msg);
+
+    const clean = String(msg || "").slice(0, 500);
+
+    const payload = {
+      text: clean,
+      from: socketUser[socket.id] || "You",
+      ts: now,
+    };
+
+    io.to(p).emit("chat_message", payload);
+    socket.emit("chat_message_self", payload);
   });
 
   socket.on("next", () => {
     unpair(socket.id);
     if (waitingUser === socket.id) waitingUser = null;
+
     socket.emit("clear_chat");
     socket.emit("waiting");
-    socket.emit("status", "Searching...");
-    socket.emit("re_find");
   });
 
   socket.on("disconnect", () => {
     if (waitingUser === socket.id) waitingUser = null;
     unpair(socket.id);
+
+    delete socketUser[socket.id];
+    delete lastMsgAt[socket.id];
+
+    broadcastOnline();
   });
 });
 

@@ -150,6 +150,29 @@
       line-height:1.35;
     }
 
+    .miniRow{
+      display:flex;
+      gap:10px;
+      margin-top:10px;
+      flex-wrap:wrap;
+    }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.12);
+      color: var(--text);
+      font-size:12px;
+      font-weight:700;
+    }
+    .chip span{
+      font-weight:800;
+      color: rgba(231,241,255,.95);
+    }
+
     .actions{
       display:grid;
       grid-template-columns: 1fr 1fr;
@@ -360,6 +383,12 @@
           </div>
         </div>
 
+        <!-- ✅ NEW: username + online count -->
+        <div class="miniRow">
+          <div class="chip">You: <span id="meName">...</span></div>
+          <div class="chip">Online: <span id="onlineCount">0</span></div>
+        </div>
+
         <div class="actions">
           <button class="btnPrimary" id="startBtn">Start</button>
           <button class="btnGhost" id="nextBtn" disabled>Next</button>
@@ -419,7 +448,6 @@
       if (soundUnlocked) return;
       soundUnlocked = true;
 
-      // unlock audio on first user interaction
       matchSound.muted = true;
       matchSound.play().then(() => {
         matchSound.pause();
@@ -454,6 +482,12 @@
     const pairPill = document.getElementById("pairPill");
     const dot = document.getElementById("dot");
 
+    // ✅ NEW UI
+    const meNameEl = document.getElementById("meName");
+    const onlineCountEl = document.getElementById("onlineCount");
+
+    let myUsername = "You";
+
     function cssVar(name){
       return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     }
@@ -477,9 +511,18 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    function addMsg(text, who="other"){
+    function fmtTime(ts){
+      const d = new Date(ts || Date.now());
+      const hh = String(d.getHours()).padStart(2,"0");
+      const mm = String(d.getMinutes()).padStart(2,"0");
+      return `${hh}:${mm}`;
+    }
+
+    // ✅ UPDATED: supports payload objects {text, from, ts}
+    function addMsg(text, who="other", metaLabel=null, ts=null){
       const row = document.createElement("div");
       row.className = "row" + (who === "me" ? " me" : "");
+
       const bubble = document.createElement("div");
       bubble.className = "bubble";
       bubble.textContent = text;
@@ -488,13 +531,11 @@
       meta.className = "meta";
       const tick = document.createElement("span");
       tick.className = "tick";
-      const time = document.createElement("span");
-      const d = new Date();
-      const hh = String(d.getHours()).padStart(2,"0");
-      const mm = String(d.getMinutes()).padStart(2,"0");
-      time.textContent = `${hh}:${mm}`;
+      const info = document.createElement("span");
+      info.textContent = metaLabel ? `${metaLabel} • ${fmtTime(ts)}` : fmtTime(ts);
+
       meta.appendChild(tick);
-      meta.appendChild(time);
+      meta.appendChild(info);
 
       bubble.appendChild(meta);
       row.appendChild(bubble);
@@ -509,6 +550,20 @@
       pairPill.textContent = connected ? "Connected" : "No partner";
     }
 
+    // ✅ Load username from /me (requires login cookie)
+    async function loadMe() {
+      try {
+        const r = await fetch("/me", { credentials: "include" });
+        const data = await r.json();
+        myUsername = data?.user?.username || "You";
+        meNameEl.textContent = myUsername;
+        socket.emit("register_user", { username: myUsername });
+      } catch (e) {
+        meNameEl.textContent = "Guest";
+      }
+    }
+    loadMe();
+
     // UI actions
     startBtn.onclick = () => {
       unlockSound();
@@ -520,7 +575,7 @@
     sendBtn.onclick = () => {
       const text = msgInput.value.trim();
       if(!text) return;
-      addMsg(text, "me");
+      // DO NOT add message here (server will send chat_message_self)
       socket.emit("chat_message", text);
       msgInput.value = "";
     };
@@ -536,9 +591,14 @@
       setStatus("Searching…", "Finding a new partner");
       setDot(cssVar("--amber"));
       sysLine("Searching for a new partner…");
+      socket.emit("find_partner");
     };
 
     // socket events
+    socket.on("online_count", (data) => {
+      onlineCountEl.textContent = data?.online ?? 0;
+    });
+
     socket.on("waiting", () => {
       setStatus("Waiting…", "Waiting for a partner to join");
       setDot(cssVar("--amber"));
@@ -546,17 +606,34 @@
       sysLine("Waiting for someone to connect…");
     });
 
-    socket.on("matched", () => {
+    // ✅ UPDATED: receives partner name
+    socket.on("matched", (data) => {
       playSafe(matchSound);
-      setStatus("Connected ✅", "Say hi 👋");
+      const partnerName = data?.partner || "Stranger";
+      setStatus("Connected ✅", `Connected with ${partnerName}`);
       setDot(cssVar("--green"));
       setConnectedUI(true);
-      sysLine("Connected! Say hi 👋");
+      sysLine(`Connected with ${partnerName}! Say hi 👋`);
     });
 
-    socket.on("chat_message", (msg) => {
+    // ✅ UPDATED: partner message payload
+    socket.on("chat_message", (payload) => {
       playSafe(msgSound);
-      addMsg(msg, "other");
+      if (payload && typeof payload === "object") {
+        addMsg(payload.text ?? "", "other", payload.from || "Stranger", payload.ts);
+      } else {
+        // fallback (old server)
+        addMsg(String(payload), "other", "Stranger", Date.now());
+      }
+    });
+
+    // ✅ NEW: your own message payload from server
+    socket.on("chat_message_self", (payload) => {
+      if (payload && typeof payload === "object") {
+        addMsg(payload.text ?? "", "me", myUsername, payload.ts);
+      } else {
+        addMsg(String(payload), "me", myUsername, Date.now());
+      }
     });
 
     socket.on("partner_left", () => {
@@ -569,14 +646,6 @@
     socket.on("clear_chat", () => {
       chatBox.innerHTML = "";
       sysLine("Chat cleared.");
-    });
-
-    socket.on("status", (t) => {
-      setStatus(t, "");
-    });
-
-    socket.on("re_find", () => {
-      socket.emit("find_partner");
     });
 
     // default state
